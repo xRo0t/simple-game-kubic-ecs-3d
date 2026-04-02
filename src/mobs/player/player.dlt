@@ -1,0 +1,64 @@
+##############################
+# Simple Game — Player
+# Spawn + WASD movement + third-person camera
+##############################
+
+struct PlayerState:
+    entity_id:  i32 = -1
+    camera_id:  i32 = -1
+    move_speed: f32 = 5.0
+    yaw:        f32 = 0.0
+    pitch:      f32 = 0.0
+
+fun spawn_player(w: World, ren: Renderer, player: PlayerState, x: f32, y: f32, z: f32) -> void:
+    player.entity_id = Kobic.spawn_cube(w, ren, "Player", 0.8, x, y, z)
+    player.camera_id = Kobic.spawn_camera(w, "PlayerCam", 70.0, x, y + 4.0, z + 6.0)
+    player.move_speed = 5.0
+    player.pitch = 0.0 - 20.0
+    Node3D.set_rot(w, player.camera_id, 0.0 - 20.0, 0.0, 0.0)
+
+fun update_player(w: World, ren: Renderer, player: PlayerState, dt: f32) -> void:
+    speed: f32 = player.move_speed * dt
+    px: f32 = Node3D.get_pos_x(w, player.entity_id)
+    py: f32 = Node3D.get_pos_y(w, player.entity_id)
+    pz: f32 = Node3D.get_pos_z(w, player.entity_id)
+
+    # Camera rotation (arrow keys)
+    if Input.held(KeyCode.Left):
+        player.yaw = player.yaw + 90.0 * dt
+    if Input.held(KeyCode.Right):
+        player.yaw = player.yaw - 90.0 * dt
+
+    # Direction vectors
+    pi: f32 = 3.14159265
+    yaw_rad: f32 = player.yaw * pi / 180.0
+    fwd_x: f32 = 0.0 - @sin(yaw_rad)
+    fwd_z: f32 = 0.0 - @cos(yaw_rad)
+    right_x: f32 = @cos(yaw_rad)
+    right_z: f32 = 0.0 - @sin(yaw_rad)
+
+    # WASD movement
+    dx: f32 = 0.0
+    dz: f32 = 0.0
+    if Input.held(KeyCode.W):
+        dx = dx + fwd_x * speed
+        dz = dz + fwd_z * speed
+    if Input.held(KeyCode.S):
+        dx = dx - fwd_x * speed
+        dz = dz - fwd_z * speed
+    if Input.held(KeyCode.A):
+        dx = dx - right_x * speed
+        dz = dz - right_z * speed
+    if Input.held(KeyCode.D):
+        dx = dx + right_x * speed
+        dz = dz + right_z * speed
+
+    # Apply movement
+    px = px + dx
+    pz = pz + dz
+    Node3D.set_pos(w, player.entity_id, px, py, pz)
+    Kobic.update_matrix(w, ren, player.entity_id)
+
+    # Third-person camera
+    Node3D.set_pos(w, player.camera_id, px - fwd_x * 6.0, py + 4.0, pz - fwd_z * 6.0)
+    Node3D.set_rot(w, player.camera_id, player.pitch, player.yaw, 0.0)

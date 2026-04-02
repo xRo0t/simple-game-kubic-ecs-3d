@@ -1,0 +1,47 @@
+##############################
+# Simple Game
+# WASD walking demo with Kobic Engine
+##############################
+
+import kobic
+import mobs.player.player
+import world.earth
+
+# ---- Setup ----
+window: i64 = Kobic.create_window("Simple Game - Kobic Engine", 1280, 720)
+w: World = Kobic.create_world()
+Input.bind(window)
+Mouse.bind(window)
+
+ctx: VulkanContext = VulkanContext()
+sc:  Swapchain     = Swapchain()
+rp:  RenderPass    = RenderPass()
+ren: Renderer      = Renderer()
+Kobic.init_render(ctx, sc, rp, ren, window, 1280, 720)
+
+ents: WorldEntities = WorldEntities()
+spawn_world(w, ren, ents)
+
+player: PlayerState = PlayerState()
+spawn_player(w, ren, player, 0.0, 0.5, 0.0)
+
+print("World ready")
+
+# ---- Game Loop ----
+last_time: f64 = glfwGetTime()
+dt: f32 = 0.0
+now: f64 = 0.0
+aspect: f32 = 1280.0 / 720.0
+
+while glfwWindowShouldClose(window) == 0:
+    Kobic.begin_frame(window)
+    now = glfwGetTime()
+    dt = now - last_time
+    last_time = now
+
+    update_player(w, ren, player, dt)
+    Kobic.render_frame(ctx, sc, rp, ren, w, player.camera_id, 1280, 720, aspect)
+
+# ---- Cleanup ----
+Kobic.cleanup(ctx, sc, rp, ren, w, window)
+print("Game closed")
