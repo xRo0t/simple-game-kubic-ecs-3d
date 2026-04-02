@@ -1,6 +1,6 @@
-# 🎮 Kubic ECS - High-Performance 3D Template
+# 🎮 Kobic ECS - High-Performance 3D Template
 
-A simple, blazing-fast 3D game template built with the **Kubic Engine** and the **Dolet Programming Language**. This project demonstrates the seamless integration of Data-Oriented Design (ECS) with a high-performance compiled backend.
+A simple, blazing-fast 3D game template built with the **Kobic Engine** and the **Dolet Programming Language**. This project demonstrates the seamless integration of Data-Oriented Design (ECS) with a high-performance compiled backend.
 
 ### ⚡ Performance Features
 
