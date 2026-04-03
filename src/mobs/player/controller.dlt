@@ -10,10 +10,10 @@ fun update_player(w: Scene, ren: Renderer, player: PlayerState, dt: f32) -> void
     pz: f32 = Node3D.get_pos_z(w, player.entity_id)
 
     # Mouse capture toggle
-    if Input.pressed(KeyCode.Escape):
+    if KbInput.pressed(KeyCode.Escape):
         Mouse.release()
     if Mouse.is_captured() == 0:
-        if Input.pressed(KeyCode.M):
+        if KbInput.pressed(KeyCode.M):
             Mouse.capture()
 
     # Camera rotation — mouse when captured, arrow keys as fallback
@@ -27,9 +27,9 @@ fun update_player(w: Scene, ren: Renderer, player: PlayerState, dt: f32) -> void
         if player.pitch < 0.0 - 89.0:
             player.pitch = 0.0 - 89.0
     else:
-        if Input.held(KeyCode.Left):
+        if KbInput.held(KeyCode.Left):
             player.yaw = player.yaw + 90.0 * dt
-        if Input.held(KeyCode.Right):
+        if KbInput.held(KeyCode.Right):
             player.yaw = player.yaw - 90.0 * dt
 
     # Direction vectors
@@ -43,16 +43,16 @@ fun update_player(w: Scene, ren: Renderer, player: PlayerState, dt: f32) -> void
     # WASD movement
     dx: f32 = 0.0
     dz: f32 = 0.0
-    if Input.held(KeyCode.W):
+    if KbInput.held(KeyCode.W):
         dx = dx + fwd_x * speed
         dz = dz + fwd_z * speed
-    if Input.held(KeyCode.S):
+    if KbInput.held(KeyCode.S):
         dx = dx - fwd_x * speed
         dz = dz - fwd_z * speed
-    if Input.held(KeyCode.A):
+    if KbInput.held(KeyCode.A):
         dx = dx - right_x * speed
         dz = dz - right_z * speed
-    if Input.held(KeyCode.D):
+    if KbInput.held(KeyCode.D):
         dx = dx + right_x * speed
         dz = dz + right_z * speed
 
