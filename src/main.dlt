@@ -8,8 +8,8 @@ import mobs.player.player
 import world.earth
 
 # ---- Setup ----
-window: i64 = Kobic.create_window("Simple Game - Kobic Engine", 1280, 720)
-w: World = Kobic.create_world()
+window: i64 = Display.create_window("Simple Game - Kobic Engine", 1280, 720)
+s: Scene = Kobic.create_scene()
 Input.bind(window)
 Mouse.bind(window)
 
@@ -20,12 +20,12 @@ ren: Renderer      = Renderer()
 Kobic.init_render(ctx, sc, rp, ren, window, 1280, 720)
 
 ents: WorldEntities = WorldEntities()
-spawn_world(w, ren, ents)
+spawn_world(s, ren, ents)
 
 player: PlayerState = PlayerState()
-spawn_player(w, ren, player, 0.0, 0.5, 0.0)
+spawn_player(s, ren, player, 0.0, 0.5, 0.0)
 
-print("World ready")
+print("Scene ready")
 
 # ---- Game Loop ----
 last_time: f64 = glfwGetTime()
@@ -39,9 +39,9 @@ while glfwWindowShouldClose(window) == 0:
     dt = now - last_time
     last_time = now
 
-    update_player(w, ren, player, dt)
-    Kobic.render_frame(ctx, sc, rp, ren, w, player.camera_id, 1280, 720, aspect)
+    update_player(s, ren, player, dt)
+    Kobic.render_frame(ctx, sc, rp, ren, s, player.camera_id, 1280, 720, aspect)
 
 # ---- Cleanup ----
-Kobic.cleanup(ctx, sc, rp, ren, w, window)
+Kobic.cleanup(ctx, sc, rp, ren, s, window)
 print("Game closed")
