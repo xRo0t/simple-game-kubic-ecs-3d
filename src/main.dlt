@@ -1,6 +1,6 @@
 ##############################
 # Simple Game
-# WASD walking demo with Kobic Engine
+# WASD walking demo with Engine Engine
 ##############################
 
 import kobic
@@ -8,8 +8,8 @@ import mobs.player.player
 import world.earth
 
 # ---- Setup ----
-window: i64 = Display.create_window("Simple Game - Kobic Engine", 1280, 720)
-s: Scene = Kobic.create_scene()
+window: i64 = Display.create_window("Simple Game - Engine Engine", 1280, 720)
+s: Scene = Engine.create_scene()
 Input.bind(window)
 Mouse.bind(window)
 
@@ -17,7 +17,7 @@ ctx: VulkanContext = VulkanContext()
 sc:  Swapchain     = Swapchain()
 rp:  RenderPass    = RenderPass()
 ren: Renderer      = Renderer()
-Kobic.init_render(ctx, sc, rp, ren, window, 1280, 720)
+Engine.init_render(ctx, sc, rp, ren, window, 1280, 720)
 
 ents: WorldEntities = WorldEntities()
 spawn_world(s, ren, ents)
@@ -34,14 +34,14 @@ now: f64 = 0.0
 aspect: f32 = 1280.0 / 720.0
 
 while glfwWindowShouldClose(window) == 0:
-    Kobic.begin_frame(window)
+    Engine.begin_frame(window)
     now = glfwGetTime()
     dt = now - last_time
     last_time = now
 
     update_player(s, ren, player, dt)
-    Kobic.render_frame(ctx, sc, rp, ren, s, player.camera_id, 1280, 720, aspect)
+    Engine.render_frame(ctx, sc, rp, ren, s, player.camera_id, 1280, 720, aspect)
 
 # ---- Cleanup ----
-Kobic.cleanup(ctx, sc, rp, ren, s, window)
+Engine.cleanup(ctx, sc, rp, ren, s, window)
 print("Game closed")
