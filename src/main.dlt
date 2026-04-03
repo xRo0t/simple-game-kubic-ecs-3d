@@ -1,14 +1,15 @@
 ##############################
 # Simple Game
-# WASD walking demo with Engine Engine
+# WASD walking demo with Kobic Engine
 ##############################
 
 import kobic
 import mobs.player.player
+import mobs.player.controller
 import world.earth
 
 # ---- Setup ----
-window: i64 = Display.create_window("Simple Game - Engine Engine", 1280, 720)
+window: i64 = Display.create_window("Simple Game - Kobic Engine", 1280, 720)
 s: Scene = Engine.create_scene()
 Input.bind(window)
 Mouse.bind(window)
