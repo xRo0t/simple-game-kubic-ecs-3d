@@ -17,7 +17,7 @@ fun spawn_world(s: Scene, ren: Renderer, entitie: WorldEntities) -> void:
 
     entitie.cube1_id = Node.spawn_cube(s, ren, "Cube1", 1.0, 3.0, 0.5, 0.0 - 3.0)
     entitie.cube2_id = Node.spawn_cube(s, ren, "Cube2", 1.5, 0.0 - 4.0, 0.75, 2.0)
-
+    
     entitie.cube3_id = Node.spawn_cube(s, ren, "Cube3", 0.8, 5.0, 0.4, 5.0)
     Node3D.set_scale(s, entitie.cube3_id, 0.8, 2.0, 0.8)
     Node.update_matrix(s, ren, entitie.cube3_id)
