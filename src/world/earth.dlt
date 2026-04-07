@@ -1,29 +1,50 @@
 ##############################
 # Simple Game — Scene
-# Ground plane + obstacle cubes
+# Cubes — Engine Stress Test
 ##############################
 
 struct WorldEntities:
     ground_id: i32 = -1
-    cube1_id:  i32 = -1
-    cube2_id:  i32 = -1
-    cube3_id:  i32 = -1
-    cube4_id:  i32 = -1
-    cube5_id:  i32 = -1
+    cube_count: i32 = 0
 
 fun spawn_world(s: Scene, ren: Renderer, entitie: WorldEntities) -> void:
 
-    entitie.ground_id = Node.spawn_plane(s, ren, "Ground", 20.0, 20.0, 0.0, 0.0, 0.0)
+    entitie.ground_id = Node.spawn_plane(s, ren, "Ground", 200.0, 200.0, 0.0, 0.0, 0.0)
 
-    entitie.cube1_id = Node.spawn_cube(s, ren, "Cube1", 1.0, 3.0, 0.5, 0.0 - 3.0)
-    entitie.cube2_id = Node.spawn_cube(s, ren, "Cube2", 1.5, 0.0 - 4.0, 0.75, 2.0)
-    
-    entitie.cube3_id = Node.spawn_cube(s, ren, "Cube3", 0.8, 5.0, 0.4, 5.0)
-    Node3D.set_scale(s, entitie.cube3_id, 0.8, 2.0, 0.8)
-    Node.update_matrix(s, ren, entitie.cube3_id)
+    # Dense cube grid — adjust GRID_SIZE to control count
+    # Total cubes = GRID_SIZE * GRID_SIZE
+    #   32 x 32   = 1,024
+    #   50 x 50   = 2,500
+    #  100 x 100  = 10,000
+    #  316 x 316  = ~100,000
+    grid: i32 = 300
+    spacing: f32 = 1.0
+    half: i32 = grid / 2
 
-    entitie.cube4_id = Node.spawn_cube(s, ren, "Cube4", 1.2, 0.0 - 2.0, 0.6, 0.0 - 6.0)
+    row: i32 = 0
+    col: i32 = 0
+    x: f32 = 0.0
+    y: f32 = 0.0
+    z: f32 = 0.0
+    iy: i32 = 0
+    count: i32 = 0
 
-    entitie.cube5_id = Node.spawn_cube(s, ren, "Cube5", 0.6, 1.0, 0.3, 2.0)
-    Node3D.set_rot(s, entitie.cube5_id, 0.0, 45.0, 0.0)
-    Node.update_matrix(s, ren, entitie.cube5_id)
+    row = 0
+    while row < grid:
+        col = 0
+        while col < grid:
+            x = (col - half) as f32 * spacing
+            z = (row - half) as f32 * spacing
+
+            # Small height variation
+            iy = ((row * 37 + col * 13) % 10)
+            y = iy as f32 / 10.0 + 0.2
+
+            Node.spawn_cube(s, ren, "C", 0.4, x, y, z)
+            count = count + 1
+
+            col = col + 1
+        row = row + 1
+
+    entitie.cube_count = count
+    println(Str.concat("Spawned cubes: ", Convert.i32_to_str(count)))
