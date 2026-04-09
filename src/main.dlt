@@ -28,7 +28,7 @@ ents: WorldEntities = WorldEntities()
 spawn_world(s, ren, ents)
 
 player: PlayerState = PlayerState()
-spawn_player(s, ren, player, 0.0, 10.5, 0.0)
+spawn_player(s, ren, player, 0.0, 0.5, 0.0)
 
 print("Scene ready")
 
@@ -37,6 +37,12 @@ last_time: f64 = kobic_get_time()
 dt: f32 = 0.0
 now: f64 = 0.0
 aspect: f32 = 800.0 / 600.0
+player_x: f32 = 0.0
+player_z: f32 = 0.0
+pi: f32 = 3.14159265
+yaw_rad: f32 = 0.0
+player_fwd_x: f32 = 0.0
+player_fwd_z: f32 = -1.0
 
 while win.should_close() == 0:
     win.poll_events()
@@ -47,9 +53,16 @@ while win.should_close() == 0:
     last_time = now
 
     update_player(s, ren, player, dt)
+    player_x = Node3D.get_pos_x(s, player.entity_id)
+    player_z = Node3D.get_pos_z(s, player.entity_id)
+    yaw_rad = player.yaw * pi / 180.0
+    player_fwd_x = 0.0 - @sin(yaw_rad)
+    player_fwd_z = 0.0 - @cos(yaw_rad)
+    update_world(s, ren, ents, now as f32, dt, player_x, player_z, player_fwd_x, player_fwd_z)
     Engine.render_frame(ctx, sc, rp, ren, s, player.camera_id, 800, 600, aspect)
 
 # ---- Cleanup ----
+cleanup_world(ents)
 Engine.cleanup(ctx, sc, rp, ren, s)
 win.destroy()
 print("Game closed")
