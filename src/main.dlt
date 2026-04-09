@@ -9,6 +9,8 @@ import kobic
 # game files:
 import mobs.player.player
 import mobs.player.controller
+import mobs.goblin.goblin
+import mobs.goblin.controller
 import world.earth
 
 # ---- Setup ----
@@ -24,8 +26,9 @@ rp:  RenderPass    = RenderPass()
 ren: Renderer      = Renderer()
 Engine.init_render(ctx, sc, rp, ren, wh, 800, 600)
 
-ents: WorldEntities = WorldEntities()
-spawn_world(s, ren, ents)
+earth: EarthState = EarthState()
+goblins: GoblinState = GoblinState()
+spawn_world(s, ren, earth, goblins)
 
 player: PlayerState = PlayerState()
 spawn_player(s, ren, player, 0.0, 0.5, 0.0)
@@ -58,12 +61,11 @@ while win.should_close() == 0:
     yaw_rad = player.yaw * pi / 180.0
     player_fwd_x = 0.0 - @sin(yaw_rad)
     player_fwd_z = 0.0 - @cos(yaw_rad)
-    update_world(s, ren, ents, now as f32, dt, player_x, player_z, player_fwd_x, player_fwd_z)
+    update_goblins(s, ren, goblins, dt, player_x, player_z, player_fwd_x, player_fwd_z)
     Engine.render_frame(ctx, sc, rp, ren, s, player.camera_id, 800, 600, aspect)
 
 # ---- Cleanup ----
-cleanup_world(ents)
+cleanup_goblins(goblins)
 Engine.cleanup(ctx, sc, rp, ren, s)
 win.destroy()
 print("Game closed")
-

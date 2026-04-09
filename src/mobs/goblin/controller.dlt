@@ -1,0 +1,139 @@
+##############################
+# Simple Game — Goblin Controller
+# Wandering, flee, and facing behavior
+##############################
+
+fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, player_x: f32, player_z: f32, player_fwd_x: f32, player_fwd_z: f32) -> void:
+    bot_half_height: f32 = goblins.scale_y * 0.5
+    wander_speed: f32 = goblins.spacing * 0.28
+    flee_speed: f32 = goblins.spacing * 1.65
+    wander_turn_blend: f32 = dt * 4.5
+    flee_turn_blend: f32 = dt * 11.0
+    panic_radius: f32 = goblins.spacing * 1.25
+    panic_radius_sq: f32 = panic_radius * panic_radius
+    home_pull: f32 = 0.30
+    home_idle_radius: f32 = goblins.spacing * 0.28
+    front_guard: f32 = goblins.spacing * 0.55
+    front_bias: f32 = 0.35
+    index: i32 = 0
+    goblin_id: i32 = 0
+    offset: i64 = 0
+    phase: i32 = 0
+    phase_tick: i32 = 0
+    timer: f32 = 0.0
+    home_x: f32 = 0.0
+    home_z: f32 = 0.0
+    pos_x: f32 = 0.0
+    pos_z: f32 = 0.0
+    wander_x: f32 = 0.0
+    wander_z: f32 = 0.0
+    home_delta_x: f32 = 0.0
+    home_delta_z: f32 = 0.0
+    home_dist_sq: f32 = 0.0
+    home_dist: f32 = 0.0
+    home_strength: f32 = 0.0
+    away_x: f32 = 0.0
+    away_z: f32 = 0.0
+    dist_sq: f32 = 0.0
+    dist: f32 = 0.0
+    flee_strength: f32 = 0.0
+    forward_dist: f32 = 0.0
+    desired_x: f32 = 0.0
+    desired_z: f32 = 0.0
+    desired_len_sq: f32 = 0.0
+    desired_len: f32 = 0.0
+    current_yaw: f32 = 0.0
+    target_yaw: f32 = 0.0
+    yaw_deg: f32 = 0.0
+    turn_blend: f32 = 0.0
+    move_speed: f32 = 0.0
+
+    while index < goblins.goblin_count:
+        goblin_id = goblins.first_goblin_id + index
+        offset = goblin_slot_offset(index)
+
+        home_x = Memory.read_f32(goblins.home_x_ptr + offset)
+        home_z = Memory.read_f32(goblins.home_z_ptr + offset)
+        phase = Memory.read_i32(goblins.phase_ptr + offset)
+        phase_tick = Memory.read_i32(goblins.phase_tick_ptr + offset)
+        timer = Memory.read_f32(goblins.timer_ptr + offset)
+        current_yaw = Memory.read_f32(goblins.yaw_ptr + offset)
+        pos_x = Node3D.get_pos_x(s, goblin_id)
+        pos_z = Node3D.get_pos_z(s, goblin_id)
+
+        home_delta_x = home_x - pos_x
+        home_delta_z = home_z - pos_z
+        home_dist_sq = home_delta_x * home_delta_x + home_delta_z * home_delta_z
+
+        away_x = pos_x - player_x
+        away_z = pos_z - player_z
+        dist_sq = away_x * away_x + away_z * away_z
+        move_speed = wander_speed
+        turn_blend = wander_turn_blend
+        desired_x = 0.0
+        desired_z = 0.0
+
+        if dist_sq < panic_radius_sq:
+            dist = @sqrt(dist_sq)
+            if dist < 0.001:
+                away_x = player_fwd_x
+                away_z = player_fwd_z
+                dist = 1.0
+            flee_strength = (panic_radius - dist) / panic_radius
+            flee_strength = flee_strength * flee_strength
+            desired_x = away_x / dist
+            desired_z = away_z / dist
+            forward_dist = away_x * player_fwd_x + away_z * player_fwd_z
+            if forward_dist < front_guard:
+                desired_x = desired_x + player_fwd_x * ((front_guard - forward_dist) / front_guard) * front_bias
+                desired_z = desired_z + player_fwd_z * ((front_guard - forward_dist) / front_guard) * front_bias
+            move_speed = flee_speed * (0.45 + flee_strength * 0.55)
+            turn_blend = flee_turn_blend
+        else:
+            timer = timer - dt
+            if timer <= 0.0:
+                phase_tick = phase_tick + 1
+                if phase == 0:
+                    phase = 1
+                else:
+                    phase = 0
+                set_goblin_phase(goblins, index, phase, phase_tick)
+                phase = Memory.read_i32(goblins.phase_ptr + offset)
+                timer = Memory.read_f32(goblins.timer_ptr + offset)
+
+            if phase == 1:
+                wander_x = Memory.read_f32(goblins.dir_x_ptr + offset)
+                wander_z = Memory.read_f32(goblins.dir_z_ptr + offset)
+                desired_x = wander_x
+                desired_z = wander_z
+            Memory.write_f32(goblins.timer_ptr + offset, timer)
+
+            if home_dist_sq > 0.0001:
+                home_dist = @sqrt(home_dist_sq)
+                home_strength = home_pull
+                if phase == 0 and home_dist <= home_idle_radius:
+                    home_strength = 0.0
+                if home_dist > goblins.spacing:
+                    home_strength = home_strength + (home_dist - goblins.spacing) / goblins.spacing * 0.25
+                if home_strength > 0.0:
+                    desired_x = desired_x + home_delta_x / home_dist * home_strength
+                    desired_z = desired_z + home_delta_z / home_dist * home_strength
+
+        desired_len_sq = desired_x * desired_x + desired_z * desired_z
+        if desired_len_sq > 0.0001:
+            desired_len = @sqrt(desired_len_sq)
+            pos_x = pos_x + desired_x / desired_len * move_speed * dt
+            pos_z = pos_z + desired_z / desired_len * move_speed * dt
+            target_yaw = goblin_yaw_from_dir(desired_x, desired_z)
+            yaw_deg = goblin_lerp_angle_deg(current_yaw, target_yaw, turn_blend)
+            Memory.write_f32(goblins.yaw_ptr + offset, yaw_deg)
+            Node3D.set_rot(s, goblin_id, 0.0, yaw_deg, 0.0)
+
+        if dist_sq < panic_radius_sq:
+            Memory.write_f32(goblins.home_x_ptr + offset, pos_x)
+            Memory.write_f32(goblins.home_z_ptr + offset, pos_z)
+
+        Node3D.set_pos(s, goblin_id, pos_x, bot_half_height, pos_z)
+        Node.update_matrix(s, ren, goblin_id)
+
+        index = index + 1
