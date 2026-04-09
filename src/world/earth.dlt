@@ -11,6 +11,7 @@ struct WorldEntities:
     spacing: f32 = 0.0
     home_x_ptr: i64 = 0
     home_z_ptr: i64 = 0
+    yaw_ptr: i64 = 0
     phase_ptr: i64 = 0
     timer_ptr: i64 = 0
     step_ptr: i64 = 0
@@ -19,6 +20,58 @@ struct WorldEntities:
 
 fun bot_slot_offset(index: i32) -> i64:
     return (index as i64) * 4
+
+fun bot_atanf(x: f32) -> f32:
+    half_pi: f32 = 1.57079632
+    v: f32 = x
+    neg: bool = v < 0.0
+    if neg:
+        v = 0.0 - v
+    invert: bool = v > 1.0
+    if invert:
+        v = 1.0 / v
+    v2: f32 = v * v
+    r: f32 = v * (1.0 + v2 * (0.0 - 0.3333333 + v2 * (0.2 + v2 * (0.0 - 0.142857142 + v2 * (0.111111111 + v2 * (0.0 - 0.0909090 + v2 * 0.0769231))))))
+    if invert:
+        r = half_pi - r
+    if neg:
+        r = 0.0 - r
+    return r
+
+fun bot_atan2f(y: f32, x: f32) -> f32:
+    pi: f32 = 3.14159265
+    if x > 0.0:
+        return bot_atanf(y / x)
+    if x < 0.0:
+        if y >= 0.0:
+            return bot_atanf(y / x) + pi
+        return bot_atanf(y / x) - pi
+    if y > 0.0:
+        return 1.57079632
+    if y < 0.0:
+        return 0.0 - 1.57079632
+    return 0.0
+
+fun bot_normalize_angle_deg(angle: f32) -> f32:
+    value: f32 = angle
+    while value > 180.0:
+        value = value - 360.0
+    while value < 0.0 - 180.0:
+        value = value + 360.0
+    return value
+
+fun bot_yaw_from_dir(dir_x: f32, dir_z: f32) -> f32:
+    rad_to_deg: f32 = 57.2957795
+    return bot_atan2f(0.0 - dir_x, 0.0 - dir_z) * rad_to_deg
+
+fun bot_lerp_angle_deg(current: f32, target: f32, blend: f32) -> f32:
+    factor: f32 = blend
+    delta: f32 = bot_normalize_angle_deg(target - current)
+    if factor < 0.0:
+        factor = 0.0
+    if factor > 1.0:
+        factor = 1.0
+    return bot_normalize_angle_deg(current + delta * factor)
 
 fun bot_hash(index: i32, phase_tick: i32, salt: i32) -> i32:
     value: i32 = (index * 193 + phase_tick * 389 + salt * 997 + 101) % 9973
@@ -67,11 +120,14 @@ fun setup_world_behavior(entitie: WorldEntities) -> void:
     base_x: f32 = 0.0
     base_z: f32 = 0.0
     offset: i64 = 0
+    current_yaw: f32 = 0.0
 
     if entitie.home_x_ptr != 0:
         Memory.free(entitie.home_x_ptr)
     if entitie.home_z_ptr != 0:
         Memory.free(entitie.home_z_ptr)
+    if entitie.yaw_ptr != 0:
+        Memory.free(entitie.yaw_ptr)
     if entitie.phase_ptr != 0:
         Memory.free(entitie.phase_ptr)
     if entitie.timer_ptr != 0:
@@ -85,6 +141,7 @@ fun setup_world_behavior(entitie: WorldEntities) -> void:
 
     entitie.home_x_ptr = Memory.malloc_zeroed(bytes)
     entitie.home_z_ptr = Memory.malloc_zeroed(bytes)
+    entitie.yaw_ptr = Memory.malloc_zeroed(bytes)
     entitie.phase_ptr = Memory.malloc_zeroed(bytes)
     entitie.timer_ptr = Memory.malloc_zeroed(bytes)
     entitie.step_ptr = Memory.malloc_zeroed(bytes)
@@ -103,6 +160,10 @@ fun setup_world_behavior(entitie: WorldEntities) -> void:
         if bot_rand01(index, 0, 5) > 0.6:
             start_phase = 1
         set_bot_phase(entitie, index, start_phase, 0)
+        current_yaw = 0.0
+        if start_phase == 1:
+            current_yaw = bot_yaw_from_dir(Memory.read_f32(entitie.dir_x_ptr + offset), Memory.read_f32(entitie.dir_z_ptr + offset))
+        Memory.write_f32(entitie.yaw_ptr + offset, current_yaw)
         index = index + 1
 
 fun cleanup_world(entitie: WorldEntities) -> void:
@@ -112,6 +173,9 @@ fun cleanup_world(entitie: WorldEntities) -> void:
     if entitie.home_z_ptr != 0:
         Memory.free(entitie.home_z_ptr)
         entitie.home_z_ptr = 0
+    if entitie.yaw_ptr != 0:
+        Memory.free(entitie.yaw_ptr)
+        entitie.yaw_ptr = 0
     if entitie.phase_ptr != 0:
         Memory.free(entitie.phase_ptr)
         entitie.phase_ptr = 0
@@ -129,6 +193,9 @@ fun cleanup_world(entitie: WorldEntities) -> void:
         entitie.dir_z_ptr = 0
 
 fun spawn_world(s: Scene, ren: Renderer, entitie: WorldEntities) -> void:
+    bot_scale_x: f32 = 0.5
+    bot_scale_y: f32 = 1.7
+    bot_scale_z: f32 = 0.5
 
     entitie.ground_id = Node.spawn_plane(s, ren, "Ground", 200.0, 200.0, 0.0, 0.0, 0.0)
 
@@ -138,7 +205,7 @@ fun spawn_world(s: Scene, ren: Renderer, entitie: WorldEntities) -> void:
     #   50 x 50   = 2,500
     #  100 x 100  = 10,000
     #  316 x 316  = ~100,000
-    grid: i32 = 1
+    grid: i32 = 50
     spacing: f32 = 4.0
     half: i32 = grid / 2
 
@@ -157,9 +224,11 @@ fun spawn_world(s: Scene, ren: Renderer, entitie: WorldEntities) -> void:
             x = (col - half) as f32 * spacing
             z = (row - half) as f32 * spacing
 
-            y = 0.5
+            y = bot_scale_y * 0.5
 
             cube_id = Node.spawn_cube(s, ren, "C", 1.0, x, y, z)
+            Node3D.set_scale(s, cube_id, bot_scale_x, bot_scale_y, bot_scale_z)
+            Node.update_matrix(s, ren, cube_id)
             if count == 0:
                 entitie.first_cube_id = cube_id
             count = count + 1
@@ -174,8 +243,12 @@ fun spawn_world(s: Scene, ren: Renderer, entitie: WorldEntities) -> void:
     println(Str.concat("Spawned cubes: ", Convert.i32_to_str(count)))
 
 fun update_world(s: Scene, ren: Renderer, entitie: WorldEntities, time: f32, dt: f32, player_x: f32, player_z: f32, player_fwd_x: f32, player_fwd_z: f32) -> void:
+    bot_scale_y: f32 = 2.2
+    bot_half_height: f32 = bot_scale_y * 0.5
     wander_speed: f32 = entitie.spacing * 0.28
     flee_speed: f32 = entitie.spacing * 1.65
+    wander_turn_blend: f32 = dt * 4.5
+    flee_turn_blend: f32 = dt * 11.0
     panic_radius: f32 = entitie.spacing * 1.25
     panic_radius_sq: f32 = panic_radius * panic_radius
     home_pull: f32 = 0.30
@@ -212,6 +285,10 @@ fun update_world(s: Scene, ren: Renderer, entitie: WorldEntities, time: f32, dt:
     desired_z: f32 = 0.0
     desired_len_sq: f32 = 0.0
     desired_len: f32 = 0.0
+    current_yaw: f32 = 0.0
+    target_yaw: f32 = 0.0
+    yaw_deg: f32 = 0.0
+    turn_blend: f32 = 0.0
     move_speed: f32 = 0.0
 
     # Cubes are spawned back-to-back, so their ids stay contiguous.
@@ -223,10 +300,11 @@ fun update_world(s: Scene, ren: Renderer, entitie: WorldEntities, time: f32, dt:
         col = index % entitie.grid
         base_x = Memory.read_f32(entitie.home_x_ptr + offset)
         base_z = Memory.read_f32(entitie.home_z_ptr + offset)
-        base_y = 0.5
+        base_y = bot_half_height
         phase = Memory.read_i32(entitie.phase_ptr + offset)
         phase_tick = Memory.read_i32(entitie.step_ptr + offset)
         timer = Memory.read_f32(entitie.timer_ptr + offset)
+        current_yaw = Memory.read_f32(entitie.yaw_ptr + offset)
         pos_x = Node3D.get_pos_x(s, cube_id)
         pos_z = Node3D.get_pos_z(s, cube_id)
 
@@ -238,6 +316,7 @@ fun update_world(s: Scene, ren: Renderer, entitie: WorldEntities, time: f32, dt:
         away_z = pos_z - player_z
         dist_sq = away_x * away_x + away_z * away_z
         move_speed = wander_speed
+        turn_blend = wander_turn_blend
         desired_x = 0.0
         desired_z = 0.0
 
@@ -256,6 +335,7 @@ fun update_world(s: Scene, ren: Renderer, entitie: WorldEntities, time: f32, dt:
                 desired_x = desired_x + player_fwd_x * ((front_guard - forward_dist) / front_guard) * front_bias
                 desired_z = desired_z + player_fwd_z * ((front_guard - forward_dist) / front_guard) * front_bias
             move_speed = flee_speed * (0.45 + flee_strength * 0.55)
+            turn_blend = flee_turn_blend
         else:
             timer = timer - dt
             if timer <= 0.0:
@@ -291,6 +371,10 @@ fun update_world(s: Scene, ren: Renderer, entitie: WorldEntities, time: f32, dt:
             desired_len = @sqrt(desired_len_sq)
             pos_x = pos_x + desired_x / desired_len * move_speed * dt
             pos_z = pos_z + desired_z / desired_len * move_speed * dt
+            target_yaw = bot_yaw_from_dir(desired_x, desired_z)
+            yaw_deg = bot_lerp_angle_deg(current_yaw, target_yaw, turn_blend)
+            Memory.write_f32(entitie.yaw_ptr + offset, yaw_deg)
+            Node3D.set_rot(s, cube_id, 0.0, yaw_deg, 0.0)
 
         if dist_sq < panic_radius_sq:
             Memory.write_f32(entitie.home_x_ptr + offset, pos_x)
