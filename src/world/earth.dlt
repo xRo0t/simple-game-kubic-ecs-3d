@@ -7,7 +7,7 @@ struct EarthState:
     ground_id: i32 = -1
 
 fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState) -> void:
-    grid: i32 = 50
+    grid: i32 = 200
     spacing: f32 = 4.0
     half: i32 = grid / 2
     count: i32 = grid * grid

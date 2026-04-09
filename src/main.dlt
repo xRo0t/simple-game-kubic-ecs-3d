@@ -31,7 +31,7 @@ goblins: GoblinState = GoblinState()
 spawn_world(s, ren, earth, goblins)
 
 player: PlayerState = PlayerState()
-spawn_player(s, ren, player, 0.0, 0.5, 0.0)
+spawn_player(s, ren, player, 0.0, 10.5, 0.0)
 
 print("Scene ready")
 
