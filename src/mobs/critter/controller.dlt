@@ -7,7 +7,7 @@ fun update_critters(s: Scene, ren: Renderer, critters: CritterState, dt: f32) ->
     critter_half_height: f32 = critters.scale_y * 0.5
     turn_blend_base: f32 = dt * 3.8
     edge_turn_blend: f32 = dt * 5.5
-    world_soft_radius: f32 = 385.0
+    world_soft_radius: f32 = critters.boundary_radius
     world_soft_radius_sq: f32 = world_soft_radius * world_soft_radius
     edge_pull: f32 = 1.0
     index: i32 = 0
@@ -69,11 +69,11 @@ fun update_critters(s: Scene, ren: Renderer, critters: CritterState, dt: f32) ->
             desired_z = wander_z
             speed_roll = critter_rand01(index, phase_tick, 53)
             if speed_roll < 0.35:
-                move_speed = critter_rand_range(index, phase_tick, 59, critters.roam_scale * 0.22, critters.roam_scale * 0.45)
+                move_speed = critter_rand_range(index, phase_tick, 59, critters.wander_speed_slow_min, critters.wander_speed_slow_max)
             elif speed_roll < 0.82:
-                move_speed = critter_rand_range(index, phase_tick, 61, critters.roam_scale * 0.45, critters.roam_scale * 0.85)
+                move_speed = critter_rand_range(index, phase_tick, 61, critters.wander_speed_normal_min, critters.wander_speed_normal_max)
             else:
-                move_speed = critter_rand_range(index, phase_tick, 67, critters.roam_scale * 0.85, critters.roam_scale * 1.20)
+                move_speed = critter_rand_range(index, phase_tick, 67, critters.wander_speed_fast_min, critters.wander_speed_fast_max)
 
         center_x = 0.0 - pos_x
         center_z = 0.0 - pos_z
@@ -83,8 +83,8 @@ fun update_critters(s: Scene, ren: Renderer, critters: CritterState, dt: f32) ->
             if center_dist > 0.001:
                 desired_x = desired_x + center_x / center_dist * edge_pull
                 desired_z = desired_z + center_z / center_dist * edge_pull
-                if move_speed < critters.roam_scale * 0.55:
-                    move_speed = critters.roam_scale * 0.55
+                if move_speed < critters.edge_return_speed:
+                    move_speed = critters.edge_return_speed
                 turn_blend = edge_turn_blend
 
         Memory.write_f32(critters.timer_ptr + offset, timer)

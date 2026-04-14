@@ -12,6 +12,9 @@ fun goblin_clear_group_stats(goblins: GoblinState) -> void:
         Memory.write_f32(goblins.group_sum_x_ptr + group_offset, 0.0)
         Memory.write_f32(goblins.group_sum_z_ptr + group_offset, 0.0)
         Memory.write_i32(goblins.group_member_count_ptr + group_offset, 0)
+        Memory.write_i32(goblins.group_leader_index_ptr + group_offset, -1)
+        Memory.write_f32(goblins.group_leader_x_ptr + group_offset, 0.0)
+        Memory.write_f32(goblins.group_leader_z_ptr + group_offset, 0.0)
         group_index = group_index + 1
 
 fun goblin_rebuild_group_centers(s: Scene, goblins: GoblinState) -> void:
@@ -41,6 +44,10 @@ fun goblin_rebuild_group_centers(s: Scene, goblins: GoblinState) -> void:
                 sum_x = Memory.read_f32(goblins.group_sum_x_ptr + group_offset)
                 sum_z = Memory.read_f32(goblins.group_sum_z_ptr + group_offset)
                 member_count = Memory.read_i32(goblins.group_member_count_ptr + group_offset)
+                if member_count == 0:
+                    Memory.write_i32(goblins.group_leader_index_ptr + group_offset, index)
+                    Memory.write_f32(goblins.group_leader_x_ptr + group_offset, pos_x)
+                    Memory.write_f32(goblins.group_leader_z_ptr + group_offset, pos_z)
                 Memory.write_f32(goblins.group_sum_x_ptr + group_offset, sum_x + pos_x)
                 Memory.write_f32(goblins.group_sum_z_ptr + group_offset, sum_z + pos_z)
                 Memory.write_i32(goblins.group_member_count_ptr + group_offset, member_count + 1)
@@ -87,25 +94,26 @@ fun goblin_find_nearest_group(goblins: GoblinState, pos_x: f32, pos_z: f32, max_
 
 fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, player_x: f32, player_z: f32, player_fwd_x: f32, player_fwd_z: f32) -> void:
     bot_half_height: f32 = goblins.scale_y * 0.5
-    wander_speed_base: f32 = goblins.roam_scale * 0.70
-    flee_speed: f32 = goblins.roam_scale * 1.65
+    wander_speed_base: f32 = goblins.wander_speed_base
+    flee_speed: f32 = goblins.flee_speed
     wander_turn_blend: f32 = dt * 4.5
     flee_turn_blend: f32 = dt * 11.0
-    panic_radius: f32 = goblins.roam_scale * 1.25
+    panic_radius: f32 = goblins.panic_radius
     panic_radius_sq: f32 = panic_radius * panic_radius
     home_pull: f32 = 0.035
-    free_roam_radius: f32 = goblins.roam_scale * 18.0
-    return_radius: f32 = goblins.roam_scale * 36.0
+    free_roam_radius: f32 = goblins.free_roam_radius
+    return_radius: f32 = goblins.return_radius
     home_drift_blend: f32 = dt * 0.12
-    front_guard: f32 = goblins.roam_scale * 0.55
+    front_guard: f32 = goblins.front_guard_distance
     front_bias: f32 = 0.35
-    join_radius: f32 = goblins.roam_scale * 42.0
+    join_radius: f32 = goblins.join_radius
     join_radius_sq: f32 = join_radius * join_radius
-    leave_radius: f32 = goblins.roam_scale * 72.0
+    leave_radius: f32 = goblins.leave_radius
     leave_radius_sq: f32 = leave_radius * leave_radius
     max_group_members: i32 = 120
-    group_pull: f32 = 0.78
-    group_target_min_dist_sq: f32 = goblins.roam_scale * goblins.roam_scale * 4.0
+    group_pull: f32 = goblins.leader_follow_pull
+    group_target_min_dist_sq: f32 = goblins.group_target_min_distance * goblins.group_target_min_distance
+    leader_follow_run_dist_sq: f32 = goblins.leader_follow_run_distance * goblins.leader_follow_run_distance
     index: i32 = 0
     goblin_id: i32 = 0
     offset: i64 = 0
@@ -113,6 +121,7 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
     group_offset: i64 = 0
     member_count: i32 = 0
     nearest_group: i32 = 0
+    leader_index: i32 = -1
     social_timer: f32 = 0.0
     phase: i32 = 0
     phase_tick: i32 = 0
@@ -222,6 +231,7 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
                     else:
                         group_offset = goblin_group_offset(group_id)
                         member_count = Memory.read_i32(goblins.group_member_count_ptr + group_offset)
+                        leader_index = Memory.read_i32(goblins.group_leader_index_ptr + group_offset)
                         group_center_x = Memory.read_f32(goblins.group_center_x_ptr + group_offset)
                         group_center_z = Memory.read_f32(goblins.group_center_z_ptr + group_offset)
                         group_delta_x = group_center_x - pos_x
@@ -232,6 +242,9 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
                             group_id = -1
                         elif group_dist_sq > leave_radius_sq:
                             group_id = -1
+                        elif leader_index == index:
+                            if social_roll < 0.015:
+                                group_id = -1
                         elif social_roll < 0.06:
                             group_id = -1
                     Memory.write_i32(goblins.group_id_ptr + offset, group_id)
@@ -257,11 +270,11 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
                 desired_z = wander_z
                 speed_roll = goblin_rand01(index, phase_tick, 41)
                 if speed_roll < 0.30:
-                    move_speed = goblin_rand_range(index, phase_tick, 43, goblins.roam_scale * 0.22, goblins.roam_scale * 0.45)
+                    move_speed = goblin_rand_range(index, phase_tick, 43, goblins.wander_speed_slow_min, goblins.wander_speed_slow_max)
                 elif speed_roll < 0.82:
-                    move_speed = goblin_rand_range(index, phase_tick, 47, goblins.roam_scale * 0.45, goblins.roam_scale * 0.85)
+                    move_speed = goblin_rand_range(index, phase_tick, 47, goblins.wander_speed_normal_min, goblins.wander_speed_normal_max)
                 else:
-                    move_speed = goblin_rand_range(index, phase_tick, 53, goblins.roam_scale * 0.85, goblins.roam_scale * 1.35)
+                    move_speed = goblin_rand_range(index, phase_tick, 53, goblins.wander_speed_fast_min, goblins.wander_speed_fast_max)
             Memory.write_f32(goblins.timer_ptr + offset, timer)
             Memory.write_f32(goblins.social_timer_ptr + offset, social_timer)
 
@@ -270,19 +283,33 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
                     group_offset = goblin_group_offset(group_id)
                     member_count = Memory.read_i32(goblins.group_member_count_ptr + group_offset)
                     if member_count > 1:
+                        leader_index = Memory.read_i32(goblins.group_leader_index_ptr + group_offset)
                         group_center_x = Memory.read_f32(goblins.group_center_x_ptr + group_offset)
                         group_center_z = Memory.read_f32(goblins.group_center_z_ptr + group_offset)
-                        group_offset_angle = goblin_rand_range(index, group_id, 79, 0.0, 6.2831853)
-                        group_offset_radius = goblin_rand_range(index, group_id, 83, goblins.roam_scale * 2.0, goblins.roam_scale * 8.0)
-                        group_target_x = group_center_x + @sin(group_offset_angle) * group_offset_radius
-                        group_target_z = group_center_z + @cos(group_offset_angle) * group_offset_radius
-                        group_delta_x = group_target_x - pos_x
-                        group_delta_z = group_target_z - pos_z
-                        group_dist_sq = group_delta_x * group_delta_x + group_delta_z * group_delta_z
-                        if group_dist_sq > group_target_min_dist_sq:
-                            group_dist = @sqrt(group_dist_sq)
-                            desired_x = desired_x + group_delta_x / group_dist * group_pull
-                            desired_z = desired_z + group_delta_z / group_dist * group_pull
+                        if leader_index == index:
+                            Memory.write_i32(goblins.role_ptr + offset, 2)
+                        else:
+                            Memory.write_i32(goblins.role_ptr + offset, 1)
+                            group_target_x = group_center_x
+                            group_target_z = group_center_z
+                            if leader_index >= 0:
+                                if leader_index < goblins.goblin_count:
+                                    group_target_x = Memory.read_f32(goblins.group_leader_x_ptr + group_offset)
+                                    group_target_z = Memory.read_f32(goblins.group_leader_z_ptr + group_offset)
+                            group_offset_angle = goblin_rand_range(index, group_id, 79, 0.0, 6.2831853)
+                            group_offset_radius = goblin_rand_range(index, group_id, 83, goblins.group_offset_min_radius, goblins.group_offset_max_radius)
+                            group_target_x = group_target_x + @sin(group_offset_angle) * group_offset_radius
+                            group_target_z = group_target_z + @cos(group_offset_angle) * group_offset_radius
+                            group_delta_x = group_target_x - pos_x
+                            group_delta_z = group_target_z - pos_z
+                            group_dist_sq = group_delta_x * group_delta_x + group_delta_z * group_delta_z
+                            if group_dist_sq > group_target_min_dist_sq:
+                                group_dist = @sqrt(group_dist_sq)
+                                desired_x = desired_x + group_delta_x / group_dist * group_pull
+                                desired_z = desired_z + group_delta_z / group_dist * group_pull
+                                if group_dist_sq > leader_follow_run_dist_sq:
+                                    if move_speed < goblins.leader_follow_run_speed:
+                                        move_speed = goblins.leader_follow_run_speed
 
             if home_dist_sq > free_roam_radius_sq:
                 home_dist = @sqrt(home_dist_sq)

@@ -6,7 +6,14 @@
 struct CritterState:
     first_critter_id: i32 = -1
     critter_count: i32 = 0
-    roam_scale: f32 = 0.0
+    wander_speed_slow_min: f32 = 0.0
+    wander_speed_slow_max: f32 = 0.0
+    wander_speed_normal_min: f32 = 0.0
+    wander_speed_normal_max: f32 = 0.0
+    wander_speed_fast_min: f32 = 0.0
+    wander_speed_fast_max: f32 = 0.0
+    edge_return_speed: f32 = 0.0
+    boundary_radius: f32 = 0.0
     scale_x: f32 = 0.0
     scale_y: f32 = 0.0
     scale_z: f32 = 0.0
@@ -122,7 +129,7 @@ fun set_critter_phase(critters: CritterState, index: i32, phase: i32, phase_tick
     Memory.write_f32(critters.dir_x_ptr + offset, dir_x)
     Memory.write_f32(critters.dir_z_ptr + offset, dir_z)
 
-fun init_critters(critters: CritterState, critter_count: i32, roam_scale: f32, scale_x: f32, scale_y: f32, scale_z: f32) -> void:
+fun init_critters(critters: CritterState, critter_count: i32) -> void:
     bytes: i64 = (critter_count as i64) * 4
 
     if critters.yaw_ptr != 0:
@@ -140,10 +147,17 @@ fun init_critters(critters: CritterState, critter_count: i32, roam_scale: f32, s
 
     critters.first_critter_id = -1
     critters.critter_count = critter_count
-    critters.roam_scale = roam_scale
-    critters.scale_x = scale_x
-    critters.scale_y = scale_y
-    critters.scale_z = scale_z
+    critters.wander_speed_slow_min = 0.62
+    critters.wander_speed_slow_max = 1.26
+    critters.wander_speed_normal_min = 1.26
+    critters.wander_speed_normal_max = 2.38
+    critters.wander_speed_fast_min = 2.38
+    critters.wander_speed_fast_max = 3.36
+    critters.edge_return_speed = 1.54
+    critters.boundary_radius = 385.0
+    critters.scale_x = 0.85
+    critters.scale_y = 0.85
+    critters.scale_z = 0.85
 
     critters.yaw_ptr = Memory.malloc_zeroed(bytes)
     critters.phase_ptr = Memory.malloc_zeroed(bytes)
@@ -172,6 +186,10 @@ fun setup_critter(s: Scene, ren: Renderer, critters: CritterState, index: i32, c
         Node3D.set_rot(s, critter_id, 0.0, current_yaw, 0.0)
         Node.update_matrix(s, ren, critter_id)
     Memory.write_f32(critters.yaw_ptr + offset, current_yaw)
+
+fun spawn_critter(s: Scene, ren: Renderer, critters: CritterState, index: i32, x: f32, z: f32) -> void:
+    critter_id: i32 = Node.spawn_cube(s, ren, "Critter", 1.0, x, critters.scale_y * 0.5, z)
+    setup_critter(s, ren, critters, index, critter_id)
 
 fun cleanup_critters(critters: CritterState) -> void:
     if critters.yaw_ptr != 0:

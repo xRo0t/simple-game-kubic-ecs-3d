@@ -1,21 +1,77 @@
-# 🎮 Kobic ECS - High-Performance 3D Template
+# Simple Game - Kobic ECS 3D Playground
 
-A simple, blazing-fast 3D game template built with the **Kobic Engine** and the **Dolet Programming Language**. This project demonstrates the seamless integration of Data-Oriented Design (ECS) with a high-performance compiled backend.
+A fast 3D sandbox built with the Kobic Engine and the Dolet programming language.
+The scene is no longer just a cube demo: it now has a living world with player
+movement, social goblins, simple ambient critters, and thousands of entities
+running through data-oriented update loops.
 
-### ⚡ Performance Features
+## What Is Inside
 
-- **By the Grace of Allah - Pure Speed**: Leveraging Dolet's LLVM-based compiler for near-metal execution speeds.
-- **Efficient ECS Architecture**: Optimized Entity Component System that ensures cache-friendly data processing, perfect for rendering thousands of entities with zero overhead.
-- **Lightweight & Modular**: Built on top of the Dolet Module System, keeping the logic for `mobs`, `world`, and `physics` cleanly separated.
-- **Fast Iteration**: Minimal memory footprint and rapid compilation cycles, allowing for real-time development tweaks.
+- A first-person player controller with WASD movement and mouse look.
+- 3000 goblins spread across the world with group behavior.
+- Goblin groups can form, split, follow a leader, and flee from the player.
+- 500 neutral critters with simple random wandering for ambient life.
+- World-side spawning with mob-specific spawn/setup logic kept inside each mob.
+- Clear tuning values for speed, flee radius, group distance, and roam distance.
+- A modular layout that keeps `player`, `goblin`, `critter`, and `world` logic separated.
 
-### 🛠️ Project Structure
+## Why This Project Matters
 
-- `src/main.dlt`: Entry point and main Game Loop.
-- `src/mobs/`: Contains entity definitions (like the player and cubes).
-- `src/world/`: Handles environmental logic and global systems.
-- `bin/`: The home of the high-performance binaries.
+This project is a practical stress test and gameplay prototype for Kobic-style ECS
+workflows. It focuses on the parts that matter for real games:
 
-### 🚀 Getting Started
+- Many entities updating every frame.
+- Simple AI that still looks alive.
+- Clean ownership between world spawning and mob behavior.
+- Low-overhead arrays for hot mob state.
+- A code layout that can grow into real gameplay systems.
 
-Simply run the provided `build.bat` to compile the project using the Dolet compiler.
+## Current World
+
+The world spawns a large ground plane, then fills it with two kinds of mobs:
+
+- `Goblin`: taller hostile mobs with flee behavior and social group logic.
+- `Critter`: small cube-like neutral mobs that wander randomly without advanced AI.
+
+The goblins use a leader/follower group model. A group stores its leader once per
+frame, followers read that cached leader position, and fallback behavior uses the
+group center if needed. This keeps the behavior smarter without adding expensive
+per-follower searches.
+
+## Controls
+
+- `W`, `A`, `S`, `D`: move.
+- Mouse: look around when captured.
+- `M`: capture mouse.
+- `Escape`: release mouse.
+- Arrow keys: fallback camera yaw when mouse is not captured.
+
+## Project Structure
+
+- `src/main.dlt`: application setup and main loop.
+- `src/world/earth.dlt`: world creation and spawn placement.
+- `src/mobs/player/`: player state and controller.
+- `src/mobs/goblin/`: goblin state, spawn/setup, cleanup, and AI controller.
+- `src/mobs/critter/`: simple ambient mob state, spawn/setup, cleanup, and controller.
+- `assets/`: future asset location.
+- `bin/`: local build output.
+
+## Build And Run
+
+Use the included build script:
+
+```bat
+build.bat
+```
+
+Or compile directly:
+
+```bat
+doletc src/main.dlt -o bin/main.exe
+```
+
+## Direction
+
+The goal is to keep pushing this from a small demo into a serious ECS game
+playground: richer mobs, better world rules, cleaner engine-facing APIs, and
+gameplay systems that stay fast even when the entity count climbs.

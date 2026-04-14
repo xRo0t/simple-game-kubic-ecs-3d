@@ -7,7 +7,26 @@ struct GoblinState:
     first_goblin_id: i32 = -1
     goblin_count: i32 = 0
     group_count: i32 = 0
-    roam_scale: f32 = 0.0
+    wander_speed_base: f32 = 0.0
+    wander_speed_slow_min: f32 = 0.0
+    wander_speed_slow_max: f32 = 0.0
+    wander_speed_normal_min: f32 = 0.0
+    wander_speed_normal_max: f32 = 0.0
+    wander_speed_fast_min: f32 = 0.0
+    wander_speed_fast_max: f32 = 0.0
+    flee_speed: f32 = 0.0
+    panic_radius: f32 = 0.0
+    front_guard_distance: f32 = 0.0
+    free_roam_radius: f32 = 0.0
+    return_radius: f32 = 0.0
+    join_radius: f32 = 0.0
+    leave_radius: f32 = 0.0
+    group_target_min_distance: f32 = 0.0
+    group_offset_min_radius: f32 = 0.0
+    group_offset_max_radius: f32 = 0.0
+    leader_follow_pull: f32 = 0.0
+    leader_follow_run_distance: f32 = 0.0
+    leader_follow_run_speed: f32 = 0.0
     scale_x: f32 = 0.0
     scale_y: f32 = 0.0
     scale_z: f32 = 0.0
@@ -27,6 +46,9 @@ struct GoblinState:
     group_sum_x_ptr: i64 = 0
     group_sum_z_ptr: i64 = 0
     group_member_count_ptr: i64 = 0
+    group_leader_index_ptr: i64 = 0
+    group_leader_x_ptr: i64 = 0
+    group_leader_z_ptr: i64 = 0
 
 fun goblin_slot_offset(index: i32) -> i64:
     return (index as i64) * 4
@@ -136,7 +158,7 @@ fun set_goblin_phase(goblins: GoblinState, index: i32, phase: i32, phase_tick: i
     Memory.write_f32(goblins.dir_x_ptr + offset, dir_x)
     Memory.write_f32(goblins.dir_z_ptr + offset, dir_z)
 
-fun init_goblins(goblins: GoblinState, goblin_count: i32, group_count: i32, roam_scale: f32, scale_x: f32, scale_y: f32, scale_z: f32) -> void:
+fun init_goblins(goblins: GoblinState, goblin_count: i32, group_count: i32) -> void:
     bytes: i64 = (goblin_count as i64) * 4
     group_bytes: i64 = (group_count as i64) * 4
 
@@ -172,14 +194,39 @@ fun init_goblins(goblins: GoblinState, goblin_count: i32, group_count: i32, roam
         Memory.free(goblins.group_sum_z_ptr)
     if goblins.group_member_count_ptr != 0:
         Memory.free(goblins.group_member_count_ptr)
+    if goblins.group_leader_index_ptr != 0:
+        Memory.free(goblins.group_leader_index_ptr)
+    if goblins.group_leader_x_ptr != 0:
+        Memory.free(goblins.group_leader_x_ptr)
+    if goblins.group_leader_z_ptr != 0:
+        Memory.free(goblins.group_leader_z_ptr)
 
     goblins.first_goblin_id = -1
     goblins.goblin_count = goblin_count
     goblins.group_count = group_count
-    goblins.roam_scale = roam_scale
-    goblins.scale_x = scale_x
-    goblins.scale_y = scale_y
-    goblins.scale_z = scale_z
+    goblins.wander_speed_base = 2.8
+    goblins.wander_speed_slow_min = 0.88
+    goblins.wander_speed_slow_max = 1.8
+    goblins.wander_speed_normal_min = 1.8
+    goblins.wander_speed_normal_max = 3.4
+    goblins.wander_speed_fast_min = 3.4
+    goblins.wander_speed_fast_max = 5.4
+    goblins.flee_speed = 6.6
+    goblins.panic_radius = 5.0
+    goblins.front_guard_distance = 2.2
+    goblins.free_roam_radius = 72.0
+    goblins.return_radius = 144.0
+    goblins.join_radius = 168.0
+    goblins.leave_radius = 288.0
+    goblins.group_target_min_distance = 8.0
+    goblins.group_offset_min_radius = 2.0 #8.0
+    goblins.group_offset_max_radius = 8.0 #32.0
+    goblins.leader_follow_pull = 1.10
+    goblins.leader_follow_run_distance = 18.0
+    goblins.leader_follow_run_speed = 4.8
+    goblins.scale_x = 0.5
+    goblins.scale_y = 1.7
+    goblins.scale_z = 0.5
 
     goblins.home_x_ptr = Memory.malloc_zeroed(bytes)
     goblins.home_z_ptr = Memory.malloc_zeroed(bytes)
@@ -197,6 +244,9 @@ fun init_goblins(goblins: GoblinState, goblin_count: i32, group_count: i32, roam
     goblins.group_sum_x_ptr = Memory.malloc_zeroed(group_bytes)
     goblins.group_sum_z_ptr = Memory.malloc_zeroed(group_bytes)
     goblins.group_member_count_ptr = Memory.malloc_zeroed(group_bytes)
+    goblins.group_leader_index_ptr = Memory.malloc_zeroed(group_bytes)
+    goblins.group_leader_x_ptr = Memory.malloc_zeroed(group_bytes)
+    goblins.group_leader_z_ptr = Memory.malloc_zeroed(group_bytes)
 
 fun setup_goblin(s: Scene, ren: Renderer, goblins: GoblinState, index: i32, goblin_id: i32, x: f32, z: f32, group_id: i32) -> void:
     offset: i64 = goblin_slot_offset(index)
@@ -230,6 +280,10 @@ fun setup_goblin(s: Scene, ren: Renderer, goblins: GoblinState, index: i32, gobl
         Node3D.set_rot(s, goblin_id, 0.0, current_yaw, 0.0)
         Node.update_matrix(s, ren, goblin_id)
     Memory.write_f32(goblins.yaw_ptr + offset, current_yaw)
+
+fun spawn_goblin(s: Scene, ren: Renderer, goblins: GoblinState, index: i32, x: f32, z: f32, group_id: i32) -> void:
+    goblin_id: i32 = Node.spawn_cube(s, ren, "Goblin", 1.0, x, goblins.scale_y * 0.5, z)
+    setup_goblin(s, ren, goblins, index, goblin_id, x, z, group_id)
 
 fun cleanup_goblins(goblins: GoblinState) -> void:
     if goblins.home_x_ptr != 0:
@@ -280,3 +334,12 @@ fun cleanup_goblins(goblins: GoblinState) -> void:
     if goblins.group_member_count_ptr != 0:
         Memory.free(goblins.group_member_count_ptr)
         goblins.group_member_count_ptr = 0
+    if goblins.group_leader_index_ptr != 0:
+        Memory.free(goblins.group_leader_index_ptr)
+        goblins.group_leader_index_ptr = 0
+    if goblins.group_leader_x_ptr != 0:
+        Memory.free(goblins.group_leader_x_ptr)
+        goblins.group_leader_x_ptr = 0
+    if goblins.group_leader_z_ptr != 0:
+        Memory.free(goblins.group_leader_z_ptr)
+        goblins.group_leader_z_ptr = 0

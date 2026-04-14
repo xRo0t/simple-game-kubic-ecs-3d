@@ -20,13 +20,13 @@ fun earth_rand_range(index: i32, seed: i32, salt: i32, min: f32, max: f32) -> f3
     return min + (max - min) * earth_rand01(index, seed, salt)
 
 fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState, critters: CritterState) -> void:
-    goblin_count: i32 = 3000
-    critter_count: i32 = 500
+    goblin_count: i32 = 20000
+    critter_count: i32 = 0
     social_group_count: i32 = 220
     spawn_radius: f32 = 360.0
     critter_spawn_radius: f32 = 345.0
-    roam_scale: f32 = 4.0
-    critter_roam_scale: f32 = 2.8
+    group_spawn_cluster_min_radius: f32 = 12.0
+    group_spawn_cluster_max_radius: f32 = 48.0
     spawn_seed: i32 = (kobic_get_time() * 1000000.0) as i32
     index: i32 = 0
     group_id: i32 = -1
@@ -44,8 +44,8 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
 
     earth.ground_id = Node.spawn_plane(s, ren, "Ground", 800.0, 800.0, 0.0, 0.0, 0.0)
 
-    init_goblins(goblins, goblin_count, social_group_count, roam_scale, 0.5, 1.7, 0.5)
-    init_critters(critters, critter_count, critter_roam_scale, 0.85, 0.85, 0.85)
+    init_goblins(goblins, goblin_count, social_group_count)
+    init_critters(critters, critter_count)
 
     while index < goblin_count:
         group_id = -1
@@ -56,7 +56,7 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
             group_center_x = @sin(group_angle) * group_radius
             group_center_z = @cos(group_angle) * group_radius
             local_angle = earth_rand_range(index, spawn_seed, 139, 0.0, 6.2831853)
-            cluster_radius = earth_rand_range(group_id, spawn_seed, 149, roam_scale * 3.0, roam_scale * 12.0)
+            cluster_radius = earth_rand_range(group_id, spawn_seed, 149, group_spawn_cluster_min_radius, group_spawn_cluster_max_radius)
             local_radius = @sqrt(earth_rand01(index, spawn_seed, 151)) * cluster_radius
             x = group_center_x + @sin(local_angle) * local_radius
             z = group_center_z + @cos(local_angle) * local_radius
@@ -65,12 +65,11 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
             radius = @sqrt(earth_rand01(index, spawn_seed, 107)) * spawn_radius
             x = @sin(angle) * radius
             z = @cos(angle) * radius
-        setup_goblin(
+        spawn_goblin(
             s,
             ren,
             goblins,
             index,
-            Node.spawn_cube(s, ren, "Goblin", 1.0, x, goblins.scale_y * 0.5, z),
             x,
             z,
             group_id
@@ -83,12 +82,13 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
         radius = @sqrt(earth_rand01(index, spawn_seed, 223)) * critter_spawn_radius
         x = @sin(angle) * radius
         z = @cos(angle) * radius
-        setup_critter(
+        spawn_critter(
             s,
             ren,
             critters,
             index,
-            Node.spawn_cube(s, ren, "Critter", 1.0, x, critters.scale_y * 0.5, z)
+            x,
+            z
         )
         index = index + 1
 
