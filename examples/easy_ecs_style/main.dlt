@@ -1,0 +1,53 @@
+##############################
+# Easy ECS Style — Main
+# Clean game entry point using App API
+##############################
+import kobic
+
+import world.earth
+import mobs.player.player
+import mobs.player.controller
+import mobs.goblin.goblin
+import mobs.goblin.controller
+
+# ---- Setup ----
+app: App = App.create("Easy ECS - Kobic Engine", 800, 600)
+
+# Register game-specific components
+register_game_components(app)
+
+# Spawn world and player
+goblins: GoblinState = GoblinState()
+spawn_world(app, goblins)
+
+player: PlayerState = spawn_player(app, 0.0, 2.5, 0.0)
+app.set_camera(player.camera_id)
+
+print("Scene ready")
+
+# ---- Game Loop ----
+pi: f32 = 3.14159265
+yaw_rad: f32 = 0.0
+player_fwd_x: f32 = 0.0
+player_fwd_z: f32 = -1.0
+
+while app.should_close() == 0:
+    app.begin_frame()
+    dt: f32 = app.delta_time()
+
+    update_player(app, player, dt)
+
+    player_x: f32 = app.get_pos_x(player.entity_id)
+    player_z: f32 = app.get_pos_z(player.entity_id)
+    yaw_rad = player.yaw * pi / 180.0
+    player_fwd_x = 0.0 - @sin(yaw_rad)
+    player_fwd_z = 0.0 - @cos(yaw_rad)
+
+    update_goblins(app, goblins, dt, player_x, player_z, player_fwd_x, player_fwd_z)
+
+    app.end_frame()
+
+# ---- Cleanup ----
+cleanup_goblins(goblins)
+app.cleanup()
+print("Game closed")
