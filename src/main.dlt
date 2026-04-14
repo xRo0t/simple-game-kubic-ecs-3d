@@ -11,6 +11,8 @@ import mobs.player.player
 import mobs.player.controller
 import mobs.goblin.goblin
 import mobs.goblin.controller
+import mobs.critter.critter
+import mobs.critter.controller
 import world.earth
 
 # ---- Setup ----
@@ -28,7 +30,8 @@ Engine.init_render(ctx, sc, rp, ren, wh, 800, 600)
 
 earth: EarthState = EarthState()
 goblins: GoblinState = GoblinState()
-spawn_world(s, ren, earth, goblins)
+critters: CritterState = CritterState()
+spawn_world(s, ren, earth, goblins, critters)
 
 player: PlayerState = PlayerState()
 spawn_player(s, ren, player, 0.0, 10.5, 0.0)
@@ -62,10 +65,12 @@ while win.should_close() == 0:
     player_fwd_x = 0.0 - @sin(yaw_rad)
     player_fwd_z = 0.0 - @cos(yaw_rad)
     update_goblins(s, ren, goblins, dt, player_x, player_z, player_fwd_x, player_fwd_z)
+    update_critters(s, ren, critters, dt)
     Engine.render_frame(ctx, sc, rp, ren, s, player.camera_id, 800, 600, aspect)
 
 # ---- Cleanup ----
 cleanup_goblins(goblins)
+cleanup_critters(critters)
 Engine.cleanup(ctx, sc, rp, ren, s)
 win.destroy()
 print("Game closed")

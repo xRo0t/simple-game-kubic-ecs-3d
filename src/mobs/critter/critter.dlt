@@ -1,0 +1,194 @@
+##############################
+# Simple Game - Critter
+# Small neutral cubes with simple random movement.
+##############################
+
+struct CritterState:
+    first_critter_id: i32 = -1
+    critter_count: i32 = 0
+    roam_scale: f32 = 0.0
+    scale_x: f32 = 0.0
+    scale_y: f32 = 0.0
+    scale_z: f32 = 0.0
+    yaw_ptr: i64 = 0
+    phase_ptr: i64 = 0
+    timer_ptr: i64 = 0
+    phase_tick_ptr: i64 = 0
+    dir_x_ptr: i64 = 0
+    dir_z_ptr: i64 = 0
+
+fun critter_slot_offset(index: i32) -> i64:
+    return (index as i64) * 4
+
+fun critter_atanf(x: f32) -> f32:
+    half_pi: f32 = 1.57079632
+    v: f32 = x
+    neg: bool = v < 0.0
+    if neg:
+        v = 0.0 - v
+    invert: bool = v > 1.0
+    if invert:
+        v = 1.0 / v
+    v2: f32 = v * v
+    r: f32 = v * (1.0 + v2 * (0.0 - 0.3333333 + v2 * (0.2 + v2 * (0.0 - 0.142857142 + v2 * (0.111111111 + v2 * (0.0 - 0.0909090 + v2 * 0.0769231))))))
+    if invert:
+        r = half_pi - r
+    if neg:
+        r = 0.0 - r
+    return r
+
+fun critter_atan2f(y: f32, x: f32) -> f32:
+    pi: f32 = 3.14159265
+    if x > 0.0:
+        return critter_atanf(y / x)
+    if x < 0.0:
+        if y >= 0.0:
+            return critter_atanf(y / x) + pi
+        return critter_atanf(y / x) - pi
+    if y > 0.0:
+        return 1.57079632
+    if y < 0.0:
+        return 0.0 - 1.57079632
+    return 0.0
+
+fun critter_normalize_angle_deg(angle: f32) -> f32:
+    value: f32 = angle
+    while value > 180.0:
+        value = value - 360.0
+    while value < 0.0 - 180.0:
+        value = value + 360.0
+    return value
+
+fun critter_yaw_from_dir(dir_x: f32, dir_z: f32) -> f32:
+    rad_to_deg: f32 = 57.2957795
+    return critter_atan2f(0.0 - dir_x, 0.0 - dir_z) * rad_to_deg
+
+fun critter_lerp_angle_deg(current: f32, target: f32, blend: f32) -> f32:
+    factor: f32 = blend
+    delta: f32 = critter_normalize_angle_deg(target - current)
+    if factor < 0.0:
+        factor = 0.0
+    if factor > 1.0:
+        factor = 1.0
+    return critter_normalize_angle_deg(current + delta * factor)
+
+fun critter_hash(index: i32, phase_tick: i32, salt: i32) -> i32:
+    value: i32 = (index * 257 + phase_tick * 541 + salt * 887 + 313) % 10007
+    value = (value * 61 + index * 73 + phase_tick * 31 + salt * 19 + 127) % 10007
+    if value < 0:
+        value = 0 - value
+    return value
+
+fun critter_rand01(index: i32, phase_tick: i32, salt: i32) -> f32:
+    return critter_hash(index, phase_tick, salt) as f32 / 10007.0
+
+fun critter_rand_range(index: i32, phase_tick: i32, salt: i32, min: f32, max: f32) -> f32:
+    return min + (max - min) * critter_rand01(index, phase_tick, salt)
+
+fun set_critter_phase(critters: CritterState, index: i32, phase: i32, phase_tick: i32) -> void:
+    offset: i64 = critter_slot_offset(index)
+    duration: f32 = 0.0
+    duration_roll: f32 = 0.0
+    angle: f32 = 0.0
+    dir_x: f32 = 0.0
+    dir_z: f32 = 0.0
+
+    Memory.write_i32(critters.phase_ptr + offset, phase)
+    Memory.write_i32(critters.phase_tick_ptr + offset, phase_tick)
+
+    if phase == 0:
+        duration_roll = critter_rand01(index, phase_tick, 11)
+        if duration_roll < 0.45:
+            duration = critter_rand_range(index, phase_tick, 13, 0.8, 2.2)
+        elif duration_roll < 0.80:
+            duration = critter_rand_range(index, phase_tick, 17, 2.2, 5.5)
+        else:
+            duration = critter_rand_range(index, phase_tick, 19, 5.5, 9.0)
+        dir_x = 0.0
+        dir_z = 0.0
+    else:
+        duration_roll = critter_rand01(index, phase_tick, 23)
+        if duration_roll < 0.45:
+            duration = critter_rand_range(index, phase_tick, 29, 0.6, 1.8)
+        elif duration_roll < 0.84:
+            duration = critter_rand_range(index, phase_tick, 31, 1.8, 4.5)
+        else:
+            duration = critter_rand_range(index, phase_tick, 37, 4.5, 8.0)
+        angle = critter_rand_range(index, phase_tick, 41, 0.0, 6.2831853)
+        dir_x = @sin(angle)
+        dir_z = @cos(angle)
+
+    Memory.write_f32(critters.timer_ptr + offset, duration)
+    Memory.write_f32(critters.dir_x_ptr + offset, dir_x)
+    Memory.write_f32(critters.dir_z_ptr + offset, dir_z)
+
+fun init_critters(critters: CritterState, critter_count: i32, roam_scale: f32, scale_x: f32, scale_y: f32, scale_z: f32) -> void:
+    bytes: i64 = (critter_count as i64) * 4
+
+    if critters.yaw_ptr != 0:
+        Memory.free(critters.yaw_ptr)
+    if critters.phase_ptr != 0:
+        Memory.free(critters.phase_ptr)
+    if critters.timer_ptr != 0:
+        Memory.free(critters.timer_ptr)
+    if critters.phase_tick_ptr != 0:
+        Memory.free(critters.phase_tick_ptr)
+    if critters.dir_x_ptr != 0:
+        Memory.free(critters.dir_x_ptr)
+    if critters.dir_z_ptr != 0:
+        Memory.free(critters.dir_z_ptr)
+
+    critters.first_critter_id = -1
+    critters.critter_count = critter_count
+    critters.roam_scale = roam_scale
+    critters.scale_x = scale_x
+    critters.scale_y = scale_y
+    critters.scale_z = scale_z
+
+    critters.yaw_ptr = Memory.malloc_zeroed(bytes)
+    critters.phase_ptr = Memory.malloc_zeroed(bytes)
+    critters.timer_ptr = Memory.malloc_zeroed(bytes)
+    critters.phase_tick_ptr = Memory.malloc_zeroed(bytes)
+    critters.dir_x_ptr = Memory.malloc_zeroed(bytes)
+    critters.dir_z_ptr = Memory.malloc_zeroed(bytes)
+
+fun setup_critter(s: Scene, ren: Renderer, critters: CritterState, index: i32, critter_id: i32) -> void:
+    offset: i64 = critter_slot_offset(index)
+    start_phase: i32 = 0
+    current_yaw: f32 = 0.0
+
+    Node3D.set_scale(s, critter_id, critters.scale_x, critters.scale_y, critters.scale_z)
+    Node.update_matrix(s, ren, critter_id)
+
+    if index == 0:
+        critters.first_critter_id = critter_id
+
+    if critter_rand01(index, 0, 5) > 0.55:
+        start_phase = 1
+    set_critter_phase(critters, index, start_phase, 0)
+
+    if start_phase == 1:
+        current_yaw = critter_yaw_from_dir(Memory.read_f32(critters.dir_x_ptr + offset), Memory.read_f32(critters.dir_z_ptr + offset))
+        Node3D.set_rot(s, critter_id, 0.0, current_yaw, 0.0)
+        Node.update_matrix(s, ren, critter_id)
+    Memory.write_f32(critters.yaw_ptr + offset, current_yaw)
+
+fun cleanup_critters(critters: CritterState) -> void:
+    if critters.yaw_ptr != 0:
+        Memory.free(critters.yaw_ptr)
+        critters.yaw_ptr = 0
+    if critters.phase_ptr != 0:
+        Memory.free(critters.phase_ptr)
+        critters.phase_ptr = 0
+    if critters.timer_ptr != 0:
+        Memory.free(critters.timer_ptr)
+        critters.timer_ptr = 0
+    if critters.phase_tick_ptr != 0:
+        Memory.free(critters.phase_tick_ptr)
+        critters.phase_tick_ptr = 0
+    if critters.dir_x_ptr != 0:
+        Memory.free(critters.dir_x_ptr)
+        critters.dir_x_ptr = 0
+    if critters.dir_z_ptr != 0:
+        Memory.free(critters.dir_z_ptr)
+        critters.dir_z_ptr = 0

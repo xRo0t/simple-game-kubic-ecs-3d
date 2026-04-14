@@ -1,0 +1,105 @@
+##############################
+# Simple Game - Critter Controller
+# Simple random walking only; no player flee and no groups.
+##############################
+
+fun update_critters(s: Scene, ren: Renderer, critters: CritterState, dt: f32) -> void:
+    critter_half_height: f32 = critters.scale_y * 0.5
+    turn_blend_base: f32 = dt * 3.8
+    edge_turn_blend: f32 = dt * 5.5
+    world_soft_radius: f32 = 385.0
+    world_soft_radius_sq: f32 = world_soft_radius * world_soft_radius
+    edge_pull: f32 = 1.0
+    index: i32 = 0
+    critter_id: i32 = 0
+    offset: i64 = 0
+    phase: i32 = 0
+    phase_tick: i32 = 0
+    timer: f32 = 0.0
+    pos_x: f32 = 0.0
+    pos_z: f32 = 0.0
+    wander_x: f32 = 0.0
+    wander_z: f32 = 0.0
+    center_x: f32 = 0.0
+    center_z: f32 = 0.0
+    center_dist_sq: f32 = 0.0
+    center_dist: f32 = 0.0
+    desired_x: f32 = 0.0
+    desired_z: f32 = 0.0
+    desired_len_sq: f32 = 0.0
+    desired_len: f32 = 0.0
+    current_yaw: f32 = 0.0
+    target_yaw: f32 = 0.0
+    yaw_deg: f32 = 0.0
+    turn_blend: f32 = 0.0
+    move_speed: f32 = 0.0
+    speed_roll: f32 = 0.0
+
+    while index < critters.critter_count:
+        critter_id = critters.first_critter_id + index
+        offset = critter_slot_offset(index)
+
+        phase = Memory.read_i32(critters.phase_ptr + offset)
+        phase_tick = Memory.read_i32(critters.phase_tick_ptr + offset)
+        timer = Memory.read_f32(critters.timer_ptr + offset)
+        current_yaw = Memory.read_f32(critters.yaw_ptr + offset)
+        pos_x = Node3D.get_pos_x(s, critter_id)
+        pos_z = Node3D.get_pos_z(s, critter_id)
+
+        timer = timer - dt
+        if timer <= 0.0:
+            phase_tick = phase_tick + 1
+            if phase == 0:
+                phase = 1
+            else:
+                phase = 0
+            set_critter_phase(critters, index, phase, phase_tick)
+            phase = Memory.read_i32(critters.phase_ptr + offset)
+            timer = Memory.read_f32(critters.timer_ptr + offset)
+
+        desired_x = 0.0
+        desired_z = 0.0
+        move_speed = 0.0
+        turn_blend = turn_blend_base
+
+        if phase == 1:
+            wander_x = Memory.read_f32(critters.dir_x_ptr + offset)
+            wander_z = Memory.read_f32(critters.dir_z_ptr + offset)
+            desired_x = wander_x
+            desired_z = wander_z
+            speed_roll = critter_rand01(index, phase_tick, 53)
+            if speed_roll < 0.35:
+                move_speed = critter_rand_range(index, phase_tick, 59, critters.roam_scale * 0.22, critters.roam_scale * 0.45)
+            elif speed_roll < 0.82:
+                move_speed = critter_rand_range(index, phase_tick, 61, critters.roam_scale * 0.45, critters.roam_scale * 0.85)
+            else:
+                move_speed = critter_rand_range(index, phase_tick, 67, critters.roam_scale * 0.85, critters.roam_scale * 1.20)
+
+        center_x = 0.0 - pos_x
+        center_z = 0.0 - pos_z
+        center_dist_sq = center_x * center_x + center_z * center_z
+        if center_dist_sq > world_soft_radius_sq:
+            center_dist = @sqrt(center_dist_sq)
+            if center_dist > 0.001:
+                desired_x = desired_x + center_x / center_dist * edge_pull
+                desired_z = desired_z + center_z / center_dist * edge_pull
+                if move_speed < critters.roam_scale * 0.55:
+                    move_speed = critters.roam_scale * 0.55
+                turn_blend = edge_turn_blend
+
+        Memory.write_f32(critters.timer_ptr + offset, timer)
+
+        desired_len_sq = desired_x * desired_x + desired_z * desired_z
+        if desired_len_sq > 0.0001:
+            desired_len = @sqrt(desired_len_sq)
+            pos_x = pos_x + desired_x / desired_len * move_speed * dt
+            pos_z = pos_z + desired_z / desired_len * move_speed * dt
+            target_yaw = critter_yaw_from_dir(desired_x, desired_z)
+            yaw_deg = critter_lerp_angle_deg(current_yaw, target_yaw, turn_blend)
+            Memory.write_f32(critters.yaw_ptr + offset, yaw_deg)
+            Node3D.set_rot(s, critter_id, 0.0, yaw_deg, 0.0)
+
+        Node3D.set_pos(s, critter_id, pos_x, critter_half_height, pos_z)
+        Node.update_matrix(s, ren, critter_id)
+
+        index = index + 1
