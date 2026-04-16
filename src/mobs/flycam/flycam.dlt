@@ -1,0 +1,19 @@
+##############################
+# Simple Game - Flycam
+# Camera-only entity state + spawn
+##############################
+
+struct FlycamState:
+    camera_id:      i32 = -1
+    move_speed:     f32 = 14.0
+    fast_mult:      f32 = 3.0
+    yaw:            f32 = 0.0
+    pitch:          f32 = 0.0
+
+fun spawn_flycam(w: Scene, flycam: FlycamState, x: f32, y: f32, z: f32) -> void:
+    flycam.camera_id = Camera.spawn(w, "FlyCam", 75.0, x, y, z)
+    flycam.move_speed = 14.0
+    flycam.fast_mult = 3.0
+    flycam.yaw = 0.0
+    flycam.pitch = 0.0
+    Node3D.set_rot(w, flycam.camera_id, flycam.pitch, flycam.yaw, 0.0)

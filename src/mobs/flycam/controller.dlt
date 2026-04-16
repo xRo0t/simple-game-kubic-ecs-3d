@@ -1,0 +1,77 @@
+##############################
+# Simple Game - Flycam Controller
+# Free camera movement + mouse look
+##############################
+
+fun update_flycam(w: Scene, flycam: FlycamState, dt: f32) -> void:
+    move_speed: f32 = flycam.move_speed
+    if KbInput.held(KeyCode.Shift):
+        move_speed = move_speed * flycam.fast_mult
+    speed: f32 = move_speed * dt
+    px: f32 = Node3D.get_pos_x(w, flycam.camera_id)
+    py: f32 = Node3D.get_pos_y(w, flycam.camera_id)
+    pz: f32 = Node3D.get_pos_z(w, flycam.camera_id)
+
+    # Mouse capture toggle
+    if KbInput.pressed(KeyCode.Escape):
+        Mouse.release()
+    if Mouse.is_captured() == 0:
+        if KbInput.pressed(KeyCode.M):
+            Mouse.capture()
+
+    # Camera rotation - mouse when captured, arrow keys as fallback
+    if Mouse.is_captured():
+        mx: f64 = Mouse.get_delta_x()
+        my: f64 = Mouse.get_delta_y()
+        flycam.yaw = flycam.yaw - mx * 0.15
+        flycam.pitch = flycam.pitch - my * 0.15
+    else:
+        if KbInput.held(KeyCode.Left):
+            flycam.yaw = flycam.yaw + 90.0 * dt
+        if KbInput.held(KeyCode.Right):
+            flycam.yaw = flycam.yaw - 90.0 * dt
+        if KbInput.held(KeyCode.Up):
+            flycam.pitch = flycam.pitch + 90.0 * dt
+        if KbInput.held(KeyCode.Down):
+            flycam.pitch = flycam.pitch - 90.0 * dt
+
+    if flycam.pitch > 89.0:
+        flycam.pitch = 89.0
+    if flycam.pitch < 0.0 - 89.0:
+        flycam.pitch = 0.0 - 89.0
+
+    # Direction vectors
+    pi: f32 = 3.14159265
+    yaw_rad: f32 = flycam.yaw * pi / 180.0
+    fwd_x: f32 = 0.0 - @sin(yaw_rad)
+    fwd_z: f32 = 0.0 - @cos(yaw_rad)
+    right_x: f32 = @cos(yaw_rad)
+    right_z: f32 = 0.0 - @sin(yaw_rad)
+
+    # WASD movement + vertical flight
+    dx: f32 = 0.0
+    dy: f32 = 0.0
+    dz: f32 = 0.0
+    if KbInput.held(KeyCode.W):
+        dx = dx + fwd_x * speed
+        dz = dz + fwd_z * speed
+    if KbInput.held(KeyCode.S):
+        dx = dx - fwd_x * speed
+        dz = dz - fwd_z * speed
+    if KbInput.held(KeyCode.A):
+        dx = dx - right_x * speed
+        dz = dz - right_z * speed
+    if KbInput.held(KeyCode.D):
+        dx = dx + right_x * speed
+        dz = dz + right_z * speed
+    if KbInput.held(KeyCode.Space):
+        dy = dy + speed
+    if KbInput.held(KeyCode.E):
+        dy = dy + speed
+    if KbInput.held(KeyCode.Ctrl):
+        dy = dy - speed
+    if KbInput.held(KeyCode.Q):
+        dy = dy - speed
+
+    Node3D.set_pos(w, flycam.camera_id, px + dx, py + dy, pz + dz)
+    Node3D.set_rot(w, flycam.camera_id, flycam.pitch, flycam.yaw, 0.0)
