@@ -1,0 +1,52 @@
+import system
+
+# 1. الـ 80% case — شغّل، شوف رجع نجح
+#if System.Command.run("git pull") == 0:
+#    print("updated")
+
+# 2. الـ 15% case — جيب نص فقط
+#sha: str = System.Command.capture("git rev-parse HEAD")
+
+# 3. الـ 5% case — كل شي تحت الفحص
+#r: Output = System.Command.output("./run_tests.sh")
+#if r.code != 0:
+#    print("FAILED with stderr:")
+#    print(r.stderr)
+#    print("stdout was:")
+#    print(r.stdout)
+
+
+print("=== Files in current directory ===")
+listing: str = System.Command.capture("cmd /c dir /b")
+
+# اطبع كل سطر مع رقم
+i: i32 = 1
+line_start: i64 = 0
+total_len: i64 = Memory.strlen(listing)
+pos: i64 = 0
+
+while pos < total_len:
+    ch: i32 = Memory.read_i8((listing as i64) + pos) as i32
+    if ch == 10:  # newline
+        # طباعة السطر مع رقمه
+        print(Convert.i32_to_str(i) + ". " + Str.substring(listing, line_start, pos))
+        i = i + 1
+        line_start = pos + 1
+    pos = pos + 1
+
+#System.Command.run("./bin/main")
+
+
+"""
+# ✅ مباشرة (.exe الأصلي)
+System.Command.run("git status")
+System.Command.run("python script.py")
+System.Command.run("clang --version")
+
+# ✅ shell features → لازم cmd /c
+System.Command.run("cmd /c dir /b *.txt")
+System.Command.run("cmd /c echo %USERPROFILE%")
+System.Command.run("cmd /c git status > log.txt")
+System.Command.capture("cmd /c dir /b | findstr .dlt")
+"""
+

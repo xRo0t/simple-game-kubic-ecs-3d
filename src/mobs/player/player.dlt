@@ -4,17 +4,21 @@
 ##############################
 
 struct PlayerState:
-    entity_id:  i32 = -1
-    camera_id:  i32 = -1
-    move_speed: f32 = 5.0
-    yaw:        f32 = 0.0
-    pitch:      f32 = 0.0
+    body:       Node = Node()
+    camera:     Node = Node()
+    move_speed: f32  = 5.0
+    yaw:        f32  = 0.0
+    pitch:      f32  = 0.0
 
-fun spawn_player(w: Scene, ren: Renderer, player: PlayerState, x: f32, y: f32, z: f32) -> void:
-    player.entity_id = Node.spawn_cube(w, ren, "Player", 0.8, x, y, z)
-    player.camera_id = Camera.spawn(w, "PlayerCam", 75.0, x, y + 1.6, z)
+fun spawn_player(app: App, player: PlayerState, x: f32, y: f32, z: f32) -> void:
+    player.body = app.spawn<Cube>()
+        .set_name("Player")
+        .scale(0.8, 0.8, 0.8)
+        .position(x, y, z)
+    player.camera = app.spawn<Camera>()
+        .set_name("PlayerCam")
+        .set_fov(75.0)
+        .position(x, y + 1.6, z)
     player.move_speed = 5.0
     player.pitch = 0.0
-    Node3D.set_rot(w, player.camera_id, 0.0, 0.0, 0.0)
-
-
+    player.camera.rotation(0.0, 0.0, 0.0)

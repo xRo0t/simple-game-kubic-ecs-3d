@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 set COMPILER=doletc
 set ENTRY_FILE=src/main.dlt
 set OUTPUT_DIR=bin
-set OUTPUT_EXE=%OUTPUT_DIR%\main.exe
+set OUTPUT_EXE=%OUTPUT_DIR%\game.exe
 
 echo [INFO] Starting Dolet Build Process...
 

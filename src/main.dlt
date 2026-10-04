@@ -1,12 +1,15 @@
 ##############################
-# Simple Game
-# WASD walking demo with Kobic Engine
+# Simple Game — Kobic ECS 3D
+#
+# A first-person world: a free-flying camera, thousands of social
+# goblins, and ambient critters — all running data-oriented update
+# loops over a flat entity array.
+#
+# `App` hides every piece of engine plumbing: window creation, the
+# Vulkan context, swapchain, render pass, renderer, the ECS scene,
+# input binding, and frame timing. Game entities are `Node` handles.
 ##############################
-# modules:
-import window
-import input
 import kobic
-# game files:
 # import mobs.player.player
 # import mobs.player.controller
 import mobs.flycam.flycam
@@ -18,73 +21,54 @@ import mobs.critter.controller
 import world.earth
 
 # ---- Setup ----
-win: Window = Window.create("Simple Game - Kobic Engine", 800, 600)
-wh: i64 = win.handle
-s: Scene = Engine.create_scene()
-KbInput.bind(wh)
-Mouse.bind(wh)
+# App.new bundles Window + VulkanContext + Swapchain + RenderPass +
+# Renderer + Scene + input binding behind a single handle. The
+# six-object juggling the old main.dlt did by hand is gone.
+app: App = App.new("Simple Game - Kobic Engine", 800, 600)
 
-ctx: VulkanContext = VulkanContext()
-sc:  Swapchain     = Swapchain()
-rp:  RenderPass    = RenderPass()
-ren: Renderer      = Renderer()
-Engine.init_render(ctx, sc, rp, ren, wh, 800, 600)
-
-earth: EarthState = EarthState()
-goblins: GoblinState = GoblinState()
+earth:    EarthState   = EarthState()
+goblins:  GoblinState  = GoblinState()
 critters: CritterState = CritterState()
-spawn_world(s, ren, earth, goblins, critters)
+spawn_world(app, earth, goblins, critters)
 
 flycam: FlycamState = FlycamState()
-spawn_flycam(s, flycam, 0.0, 10.5, 0.0)
-
-# player: PlayerState = PlayerState()
-# spawn_player(s, ren, player, 0.0, 10.5, 0.0)
+spawn_flycam(app, flycam, 0.0, 10.5, 0.0)
 
 print("Scene ready")
 
-# ---- Game Loop ----
-last_time: f64 = kobic_get_time()
-dt: f32 = 0.0
-now: f64 = 0.0
-aspect: f32 = 800.0 / 600.0
-camera_x: f32 = 0.0
-camera_z: f32 = 0.0
-pi: f32 = 3.14159265
+# ---- Game loop — explicit, every step visible ----
+pi:      f32 = 3.14159265
+dt:      f32 = 0.0
+cam_x:   f32 = 0.0
+cam_z:   f32 = 0.0
 yaw_rad: f32 = 0.0
-camera_fwd_x: f32 = 0.0
-camera_fwd_z: f32 = -1.0
+fwd_x:   f32 = 0.0
+fwd_z:   f32 = 0.0 - 1.0
 
-while win.should_close() == 0:
-    win.poll_events()
-    KbInput.update()
-    Mouse.update()
-    now = kobic_get_time()
-    dt = now - last_time
-    last_time = now
+while app.running():
+    # begin_frame: poll OS events, refresh keyboard + mouse state, and
+    # return the delta time (seconds) since the previous frame.
+    dt = app.begin_frame()
 
-    update_flycam(s, flycam, dt)
-    camera_x = Node3D.get_pos_x(s, flycam.camera_id)
-    camera_z = Node3D.get_pos_z(s, flycam.camera_id)
+    update_flycam(app, flycam, dt)
+
+    # The goblins flee from the camera — hand their AI its position and
+    # facing so they can react to where the player is looking.
+    cam_x   = flycam.camera.pos_x()
+    cam_z   = flycam.camera.pos_z()
     yaw_rad = flycam.yaw * pi / 180.0
-    camera_fwd_x = 0.0 - @sin(yaw_rad)
-    camera_fwd_z = 0.0 - @cos(yaw_rad)
+    fwd_x   = 0.0 - @sin(yaw_rad)
+    fwd_z   = 0.0 - @cos(yaw_rad)
 
-    # update_player(s, ren, player, dt)
-    # player_x = Node3D.get_pos_x(s, player.entity_id)
-    # player_z = Node3D.get_pos_z(s, player.entity_id)
-    # yaw_rad = player.yaw * pi / 180.0
-    # player_fwd_x = 0.0 - @sin(yaw_rad)
-    # player_fwd_z = 0.0 - @cos(yaw_rad)
+    update_goblins(goblins, dt, cam_x, cam_z, fwd_x, fwd_z)
+    update_critters(critters, dt)
 
-    update_goblins(s, ren, goblins, dt, camera_x, camera_z, camera_fwd_x, camera_fwd_z)
-    update_critters(s, ren, critters, dt)
-    Engine.render_frame(ctx, sc, rp, ren, s, flycam.camera_id, 800, 600, aspect)
-    # Engine.render_frame(ctx, sc, rp, ren, s, player.camera_id, 800, 600, aspect)
+    # end_frame: rebuild moved transforms, render from the active
+    # camera, and present the frame.
+    app.end_frame()
 
 # ---- Cleanup ----
 cleanup_goblins(goblins)
 cleanup_critters(critters)
-Engine.cleanup(ctx, sc, rp, ren, s)
-win.destroy()
+app.shutdown()        # destroys Vulkan objects + window
 print("Game closed")

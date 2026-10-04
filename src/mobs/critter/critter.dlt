@@ -1,10 +1,10 @@
 ##############################
-# Simple Game - Critter
+# Simple Game — Critter
 # Small neutral cubes with simple random movement.
 ##############################
 
 struct CritterState:
-    first_critter_id: i32 = -1
+    first_critter: Node = Node()
     critter_count: i32 = 0
     wander_speed_slow_min: f32 = 0.0
     wander_speed_slow_max: f32 = 0.0
@@ -145,7 +145,6 @@ fun init_critters(critters: CritterState, critter_count: i32) -> void:
     if critters.dir_z_ptr != 0:
         Memory.free(critters.dir_z_ptr)
 
-    critters.first_critter_id = -1
     critters.critter_count = critter_count
     critters.wander_speed_slow_min = 0.62
     critters.wander_speed_slow_max = 1.26
@@ -166,16 +165,19 @@ fun init_critters(critters: CritterState, critter_count: i32) -> void:
     critters.dir_x_ptr = Memory.malloc_zeroed(bytes)
     critters.dir_z_ptr = Memory.malloc_zeroed(bytes)
 
-fun setup_critter(s: Scene, ren: Renderer, critters: CritterState, index: i32, critter_id: i32) -> void:
+# Sets scale, initial phase, and facing on a freshly-spawned critter.
+# Receives the critter's `Node` handle directly from spawn_critter.
+fun setup_critter(critters: CritterState, index: i32, c: Node) -> void:
     offset: i64 = critter_slot_offset(index)
     start_phase: i32 = 0
     current_yaw: f32 = 0.0
 
-    Node3D.set_scale(s, critter_id, critters.scale_x, critters.scale_y, critters.scale_z)
-    Node.update_matrix(s, ren, critter_id)
+    c.scale(critters.scale_x, critters.scale_y, critters.scale_z)
 
+    # Critter 0's handle anchors the flat array — every other critter is
+    # reachable as `first_critter.at(index)` (consecutive entity ids).
     if index == 0:
-        critters.first_critter_id = critter_id
+        critters.first_critter = c
 
     if critter_rand01(index, 0, 5) > 0.55:
         start_phase = 1
@@ -183,13 +185,14 @@ fun setup_critter(s: Scene, ren: Renderer, critters: CritterState, index: i32, c
 
     if start_phase == 1:
         current_yaw = critter_yaw_from_dir(Memory.read_f32(critters.dir_x_ptr + offset), Memory.read_f32(critters.dir_z_ptr + offset))
-        Node3D.set_rot(s, critter_id, 0.0, current_yaw, 0.0)
-        Node.update_matrix(s, ren, critter_id)
+        c.rotation(0.0, current_yaw, 0.0)
     Memory.write_f32(critters.yaw_ptr + offset, current_yaw)
 
-fun spawn_critter(s: Scene, ren: Renderer, critters: CritterState, index: i32, x: f32, z: f32) -> void:
-    critter_id: i32 = Node.spawn_cube(s, ren, "Critter", 1.0, x, critters.scale_y * 0.5, z)
-    setup_critter(s, ren, critters, index, critter_id)
+fun spawn_critter(app: App, critters: CritterState, index: i32, x: f32, z: f32) -> void:
+    c: Node = app.spawn<Cube>()
+        .set_name("Critter")
+        .position(x, critters.scale_y * 0.5, z)
+    setup_critter(critters, index, c)
 
 fun cleanup_critters(critters: CritterState) -> void:
     if critters.yaw_ptr != 0:

@@ -1,38 +1,38 @@
 ##############################
-# Simple Game - Flycam Controller
+# Simple Game — Flycam Controller
 # Free camera movement + mouse look
 ##############################
 
-fun update_flycam(w: Scene, flycam: FlycamState, dt: f32) -> void:
+fun update_flycam(app: App, flycam: FlycamState, dt: f32) -> void:
     move_speed: f32 = flycam.move_speed
-    if KbInput.held(KeyCode.Shift):
+    if app.key_down(KeyCode.Shift):
         move_speed = move_speed * flycam.fast_mult
     speed: f32 = move_speed * dt
-    px: f32 = Node3D.get_pos_x(w, flycam.camera_id)
-    py: f32 = Node3D.get_pos_y(w, flycam.camera_id)
-    pz: f32 = Node3D.get_pos_z(w, flycam.camera_id)
+    px: f32 = flycam.camera.pos_x()
+    py: f32 = flycam.camera.pos_y()
+    pz: f32 = flycam.camera.pos_z()
 
     # Mouse capture toggle
-    if KbInput.pressed(KeyCode.Escape):
-        Mouse.release()
-    if Mouse.is_captured() == 0:
-        if KbInput.pressed(KeyCode.M):
-            Mouse.capture()
+    if app.key_pressed(KeyCode.Escape):
+        app.mouse_release()
+    if app.mouse_captured() == 0:
+        if app.key_pressed(KeyCode.M):
+            app.mouse_capture()
 
     # Camera rotation - mouse when captured, arrow keys as fallback
-    if Mouse.is_captured():
-        mx: f64 = Mouse.get_delta_x()
-        my: f64 = Mouse.get_delta_y()
+    if app.mouse_captured():
+        mx: f32 = app.mouse_dx()
+        my: f32 = app.mouse_dy()
         flycam.yaw = flycam.yaw - mx * 0.15
         flycam.pitch = flycam.pitch - my * 0.15
     else:
-        if KbInput.held(KeyCode.Left):
+        if app.key_down(KeyCode.Left):
             flycam.yaw = flycam.yaw + 90.0 * dt
-        if KbInput.held(KeyCode.Right):
+        if app.key_down(KeyCode.Right):
             flycam.yaw = flycam.yaw - 90.0 * dt
-        if KbInput.held(KeyCode.Up):
+        if app.key_down(KeyCode.Up):
             flycam.pitch = flycam.pitch + 90.0 * dt
-        if KbInput.held(KeyCode.Down):
+        if app.key_down(KeyCode.Down):
             flycam.pitch = flycam.pitch - 90.0 * dt
 
     if flycam.pitch > 89.0:
@@ -52,26 +52,26 @@ fun update_flycam(w: Scene, flycam: FlycamState, dt: f32) -> void:
     dx: f32 = 0.0
     dy: f32 = 0.0
     dz: f32 = 0.0
-    if KbInput.held(KeyCode.W):
+    if app.key_down(KeyCode.W):
         dx = dx + fwd_x * speed
         dz = dz + fwd_z * speed
-    if KbInput.held(KeyCode.S):
+    if app.key_down(KeyCode.S):
         dx = dx - fwd_x * speed
         dz = dz - fwd_z * speed
-    if KbInput.held(KeyCode.A):
+    if app.key_down(KeyCode.A):
         dx = dx - right_x * speed
         dz = dz - right_z * speed
-    if KbInput.held(KeyCode.D):
+    if app.key_down(KeyCode.D):
         dx = dx + right_x * speed
         dz = dz + right_z * speed
-    if KbInput.held(KeyCode.Space):
+    if app.key_down(KeyCode.Space):
         dy = dy + speed
-    if KbInput.held(KeyCode.E):
+    if app.key_down(KeyCode.E):
         dy = dy + speed
-    if KbInput.held(KeyCode.Ctrl):
+    if app.key_down(KeyCode.Ctrl):
         dy = dy - speed
-    if KbInput.held(KeyCode.Q):
+    if app.key_down(KeyCode.Q):
         dy = dy - speed
 
-    Node3D.set_pos(w, flycam.camera_id, px + dx, py + dy, pz + dz)
-    Node3D.set_rot(w, flycam.camera_id, flycam.pitch, flycam.yaw, 0.0)
+    flycam.camera.position(px + dx, py + dy, pz + dz)
+    flycam.camera.rotation(flycam.pitch, flycam.yaw, 0.0)

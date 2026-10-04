@@ -2,7 +2,7 @@
 # Simple Game — Goblin Controller
 # Wandering, flee, and facing behavior
 ##############################
- 
+
 fun goblin_clear_group_stats(goblins: GoblinState) -> void:
     group_index: i32 = 0
     group_offset: i64 = 0
@@ -17,9 +17,9 @@ fun goblin_clear_group_stats(goblins: GoblinState) -> void:
         Memory.write_f32(goblins.group_leader_z_ptr + group_offset, 0.0)
         group_index = group_index + 1
 
-fun goblin_rebuild_group_centers(s: Scene, goblins: GoblinState) -> void:
+fun goblin_rebuild_group_centers(goblins: GoblinState) -> void:
     index: i32 = 0
-    goblin_id: i32 = 0
+    g: Node = Node()
     offset: i64 = 0
     group_id: i32 = 0
     group_index: i32 = 0
@@ -37,9 +37,9 @@ fun goblin_rebuild_group_centers(s: Scene, goblins: GoblinState) -> void:
         group_id = Memory.read_i32(goblins.group_id_ptr + offset)
         if group_id >= 0:
             if group_id < goblins.group_count:
-                goblin_id = goblins.first_goblin_id + index
-                pos_x = Node3D.get_pos_x(s, goblin_id)
-                pos_z = Node3D.get_pos_z(s, goblin_id)
+                g = goblins.first_goblin.at(index)
+                pos_x = g.pos_x()
+                pos_z = g.pos_z()
                 group_offset = goblin_group_offset(group_id)
                 sum_x = Memory.read_f32(goblins.group_sum_x_ptr + group_offset)
                 sum_z = Memory.read_f32(goblins.group_sum_z_ptr + group_offset)
@@ -92,7 +92,7 @@ fun goblin_find_nearest_group(goblins: GoblinState, pos_x: f32, pos_z: f32, max_
 
     return best_group
 
-fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, player_x: f32, player_z: f32, player_fwd_x: f32, player_fwd_z: f32) -> void:
+fun update_goblins(goblins: GoblinState, dt: f32, player_x: f32, player_z: f32, player_fwd_x: f32, player_fwd_z: f32) -> void:
     bot_half_height: f32 = goblins.scale_y * 0.5
     wander_speed_base: f32 = goblins.wander_speed_base
     flee_speed: f32 = goblins.flee_speed
@@ -115,7 +115,7 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
     group_target_min_dist_sq: f32 = goblins.group_target_min_distance * goblins.group_target_min_distance
     leader_follow_run_dist_sq: f32 = goblins.leader_follow_run_distance * goblins.leader_follow_run_distance
     index: i32 = 0
-    goblin_id: i32 = 0
+    g: Node = Node()
     offset: i64 = 0
     group_id: i32 = 0
     group_offset: i64 = 0
@@ -169,10 +169,10 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
     if home_drift_blend > 0.08:
         home_drift_blend = 0.08
 
-    goblin_rebuild_group_centers(s, goblins)
+    goblin_rebuild_group_centers(goblins)
 
     while index < goblins.goblin_count:
-        goblin_id = goblins.first_goblin_id + index
+        g = goblins.first_goblin.at(index)
         offset = goblin_slot_offset(index)
 
         home_x = Memory.read_f32(goblins.home_x_ptr + offset)
@@ -183,8 +183,8 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
         current_yaw = Memory.read_f32(goblins.yaw_ptr + offset)
         group_id = Memory.read_i32(goblins.group_id_ptr + offset)
         social_timer = Memory.read_f32(goblins.social_timer_ptr + offset)
-        pos_x = Node3D.get_pos_x(s, goblin_id)
-        pos_z = Node3D.get_pos_z(s, goblin_id)
+        pos_x = g.pos_x()
+        pos_z = g.pos_z()
 
         home_delta_x = home_x - pos_x
         home_delta_z = home_z - pos_z
@@ -330,7 +330,7 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
             target_yaw = goblin_yaw_from_dir(desired_x, desired_z)
             yaw_deg = goblin_lerp_angle_deg(current_yaw, target_yaw, turn_blend)
             Memory.write_f32(goblins.yaw_ptr + offset, yaw_deg)
-            Node3D.set_rot(s, goblin_id, 0.0, yaw_deg, 0.0)
+            g.rotation(0.0, yaw_deg, 0.0)
 
         if dist_sq < panic_radius_sq:
             Memory.write_f32(goblins.home_x_ptr + offset, pos_x)
@@ -339,7 +339,6 @@ fun update_goblins(s: Scene, ren: Renderer, goblins: GoblinState, dt: f32, playe
             Memory.write_f32(goblins.home_x_ptr + offset, home_x + (pos_x - home_x) * home_drift_blend)
             Memory.write_f32(goblins.home_z_ptr + offset, home_z + (pos_z - home_z) * home_drift_blend)
 
-        Node3D.set_pos(s, goblin_id, pos_x, bot_half_height, pos_z)
-        Node.update_matrix(s, ren, goblin_id)
+        g.position(pos_x, bot_half_height, pos_z)
 
         index = index + 1

@@ -1,10 +1,10 @@
 ##############################
 # Simple Game — Earth
-# Ground + world-side goblin spawning
+# Ground + world-side goblin / critter spawning
 ##############################
 
 struct EarthState:
-    ground_id: i32 = -1
+    ground: Node = Node()
 
 fun earth_rand01(index: i32, seed: i32, salt: i32) -> f32:
     raw: f32 = @sin((index as f32 + 1.0) * (12.9898 + salt as f32 * 0.731) + seed as f32 * 0.013 + salt as f32 * 78.233) * 43758.5453
@@ -19,8 +19,8 @@ fun earth_rand01(index: i32, seed: i32, salt: i32) -> f32:
 fun earth_rand_range(index: i32, seed: i32, salt: i32, min: f32, max: f32) -> f32:
     return min + (max - min) * earth_rand01(index, seed, salt)
 
-fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState, critters: CritterState) -> void:
-    goblin_count: i32 = 20000
+fun spawn_world(app: App, earth: EarthState, goblins: GoblinState, critters: CritterState) -> void:
+    goblin_count: i32 = 1000
     critter_count: i32 = 0
     social_group_count: i32 = 220
     spawn_radius: f32 = 360.0
@@ -42,7 +42,11 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
     x: f32 = 0.0
     z: f32 = 0.0
 
-    earth.ground_id = Node.spawn_plane(s, ren, "Ground", 800.0, 800.0, 0.0, 0.0, 0.0)
+    # Ground — a unit plane scaled to 800x800.
+    earth.ground = app.spawn<Plane>()
+        .set_name("Ground")
+        .scale(800.0, 1.0, 800.0)
+        .position(0.0, 0.0, 0.0)
 
     init_goblins(goblins, goblin_count, social_group_count)
     init_critters(critters, critter_count)
@@ -65,15 +69,7 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
             radius = @sqrt(earth_rand01(index, spawn_seed, 107)) * spawn_radius
             x = @sin(angle) * radius
             z = @cos(angle) * radius
-        spawn_goblin(
-            s,
-            ren,
-            goblins,
-            index,
-            x,
-            z,
-            group_id
-        )
+        spawn_goblin(app, goblins, index, x, z, group_id)
         index = index + 1
 
     index = 0
@@ -82,16 +78,8 @@ fun spawn_world(s: Scene, ren: Renderer, earth: EarthState, goblins: GoblinState
         radius = @sqrt(earth_rand01(index, spawn_seed, 223)) * critter_spawn_radius
         x = @sin(angle) * radius
         z = @cos(angle) * radius
-        spawn_critter(
-            s,
-            ren,
-            critters,
-            index,
-            x,
-            z
-        )
+        spawn_critter(app, critters, index, x, z)
         index = index + 1
 
-    #println(Str.concat("Spawned goblins: ", Convert.i32_to_str(count)))
-    print(@"Spawned goblins {goblin_count}!!!") #easier and works xD
+    print(@"Spawned goblins {goblin_count}!!!")
     print(@"Spawned critters {critter_count}!!!")

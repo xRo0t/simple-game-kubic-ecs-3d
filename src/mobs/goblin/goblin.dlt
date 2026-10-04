@@ -4,7 +4,7 @@
 ##############################
 
 struct GoblinState:
-    first_goblin_id: i32 = -1
+    first_goblin: Node = Node()
     goblin_count: i32 = 0
     group_count: i32 = 0
     wander_speed_base: f32 = 0.0
@@ -201,7 +201,6 @@ fun init_goblins(goblins: GoblinState, goblin_count: i32, group_count: i32) -> v
     if goblins.group_leader_z_ptr != 0:
         Memory.free(goblins.group_leader_z_ptr)
 
-    goblins.first_goblin_id = -1
     goblins.goblin_count = goblin_count
     goblins.group_count = group_count
     goblins.wander_speed_base = 2.8
@@ -248,17 +247,20 @@ fun init_goblins(goblins: GoblinState, goblin_count: i32, group_count: i32) -> v
     goblins.group_leader_x_ptr = Memory.malloc_zeroed(group_bytes)
     goblins.group_leader_z_ptr = Memory.malloc_zeroed(group_bytes)
 
-fun setup_goblin(s: Scene, ren: Renderer, goblins: GoblinState, index: i32, goblin_id: i32, x: f32, z: f32, group_id: i32) -> void:
+# Sets scale, initial phase, and facing on a freshly-spawned goblin.
+# Receives the goblin's `Node` handle directly from spawn_goblin.
+fun setup_goblin(goblins: GoblinState, index: i32, g: Node, x: f32, z: f32, group_id: i32) -> void:
     offset: i64 = goblin_slot_offset(index)
     start_phase: i32 = 0
     current_yaw: f32 = 0.0
     social_timer: f32 = 0.0
 
-    Node3D.set_scale(s, goblin_id, goblins.scale_x, goblins.scale_y, goblins.scale_z)
-    Node.update_matrix(s, ren, goblin_id)
+    g.scale(goblins.scale_x, goblins.scale_y, goblins.scale_z)
 
+    # Goblin 0's handle anchors the flat array — every other goblin is
+    # reachable as `first_goblin.at(index)` (consecutive entity ids).
     if index == 0:
-        goblins.first_goblin_id = goblin_id
+        goblins.first_goblin = g
 
     Memory.write_f32(goblins.home_x_ptr + offset, x)
     Memory.write_f32(goblins.home_z_ptr + offset, z)
@@ -277,13 +279,14 @@ fun setup_goblin(s: Scene, ren: Renderer, goblins: GoblinState, index: i32, gobl
     current_yaw = 0.0
     if start_phase == 1:
         current_yaw = goblin_yaw_from_dir(Memory.read_f32(goblins.dir_x_ptr + offset), Memory.read_f32(goblins.dir_z_ptr + offset))
-        Node3D.set_rot(s, goblin_id, 0.0, current_yaw, 0.0)
-        Node.update_matrix(s, ren, goblin_id)
+        g.rotation(0.0, current_yaw, 0.0)
     Memory.write_f32(goblins.yaw_ptr + offset, current_yaw)
 
-fun spawn_goblin(s: Scene, ren: Renderer, goblins: GoblinState, index: i32, x: f32, z: f32, group_id: i32) -> void:
-    goblin_id: i32 = Node.spawn_cube(s, ren, "Goblin", 1.0, x, goblins.scale_y * 0.5, z)
-    setup_goblin(s, ren, goblins, index, goblin_id, x, z, group_id)
+fun spawn_goblin(app: App, goblins: GoblinState, index: i32, x: f32, z: f32, group_id: i32) -> void:
+    g: Node = app.spawn<Cube>()
+        .set_name("Goblin")
+        .position(x, goblins.scale_y * 0.5, z)
+    setup_goblin(goblins, index, g, x, z, group_id)
 
 fun cleanup_goblins(goblins: GoblinState) -> void:
     if goblins.home_x_ptr != 0:
